@@ -1,13 +1,22 @@
 import { generateText } from 'ai'
-import { createMinimax } from 'vercel-minimax-ai-provider'
+import { createMinimaxOpenAI } from 'vercel-minimax-ai-provider'
 import { githubTools } from '../tools/github'
 
-export async function createRepoAgent(repo: string, minimaxApiKey: string): Promise<string> {
-  const minimax = createMinimax({ apiKey: minimaxApiKey })
-  const model = minimax('MiniMax-M2.5-highspeed')
+function parseRepo(input: string): { owner: string; name: string } {
+  // Support both "owner/repo" and full GitHub URLs
+  const trimmed = input.trim()
+  const match = trimmed.match(/github\.com\/([^/]+)\/([^/]+)/)
+  if (match) return { owner: match[1], name: match[2] }
+  const parts = trimmed.split('/')
+  if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], name: parts[1] }
+  throw new Error(`Invalid repo format: "${input}". Expected "owner/repo" or GitHub URL.`)
+}
 
-  const [owner, name] = repo.split('/')
-  if (!owner || !name) throw new Error(`Invalid repo format: "${repo}". Expected "owner/repo".`)
+export async function createRepoAgent(repo: string, minimaxApiKey: string): Promise<string> {
+  const minimax = createMinimaxOpenAI({ apiKey: minimaxApiKey, baseURL: 'https://api.minimaxi.com/v1' })
+  const model = minimax('MiniMax-M2.7')
+
+  const { owner, name } = parseRepo(repo)
 
   const result = await generateText({
     model,

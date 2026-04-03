@@ -1,5 +1,5 @@
 import { streamText } from 'ai'
-import { createMinimax } from 'vercel-minimax-ai-provider'
+import { createMinimaxOpenAI } from 'vercel-minimax-ai-provider'
 
 export interface RepoAnalysis {
   repo: string
@@ -10,8 +10,8 @@ export async function* streamSummary(
   analyses: RepoAnalysis[],
   minimaxApiKey: string
 ): AsyncGenerator<string> {
-  const minimax = createMinimax({ apiKey: minimaxApiKey })
-  const model = minimax('MiniMax-M2.5')
+  const minimax = createMinimaxOpenAI({ apiKey: minimaxApiKey, baseURL: 'https://api.minimaxi.com/v1' })
+  const model = minimax('MiniMax-M2.7')
 
   const repoNames = analyses.map(a => a.repo).join(' vs ')
   const analysesText = analyses

@@ -13,11 +13,20 @@ async function sseEvent(writer: WritableStreamDefaultWriter<Uint8Array>, data: u
   await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
 }
 
+const REPO_REGEX = /^[a-zA-Z0-9._/-]+$/
+
 app.post('/api/compare', async (c) => {
   const { repos } = await c.req.json<{ repos: string[] }>()
 
   if (!repos || repos.length < 2 || repos.length > 3) {
     return c.json({ error: 'Provide 2-3 repos' }, 400)
+  }
+
+  // Validate repo format
+  for (const repo of repos) {
+    if (!REPO_REGEX.test(repo.trim())) {
+      return c.json({ error: `Invalid repo format: "${repo}". Use "owner/repo" or GitHub URL.` }, 400)
+    }
   }
 
   const minimaxApiKey = c.env.MINIMAX_API_KEY
@@ -43,7 +52,9 @@ app.post('/api/compare', async (c) => {
       }
       await sseEvent(writer, { type: 'done' })
     } catch (err) {
-      await sseEvent(writer, { type: 'error', msg: String(err) })
+      // Don't expose internal errors to client
+      const message = err instanceof Error ? err.message : 'Internal error'
+      await sseEvent(writer, { type: 'error', msg: message })
     } finally {
       writer.close()
     }
