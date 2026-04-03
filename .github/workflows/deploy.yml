@@ -24,9 +24,10 @@ jobs:
           apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           secrets: |
             OPENAI_API_KEY
+          vars: |
             OPENAI_BASE_URL
             AI_MODEL_NAME
         env:
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
-          OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
-          AI_MODEL_NAME: ${{ secrets.AI_MODEL_NAME }}
+          OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
+          AI_MODEL_NAME: ${{ vars.AI_MODEL_NAME }}
