@@ -4,6 +4,8 @@ import { ProgressLog } from './components/ProgressLog'
 import { ReportView } from './components/ReportView'
 import { ExportButton } from './components/ExportButton'
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+
 export default function App() {
   const [repos, setRepos] = useState(['', ''])
   const [logs, setLogs] = useState<string[]>([])
@@ -18,7 +20,7 @@ export default function App() {
     setReport('')
 
     try {
-      const res = await fetch('/api/compare', {
+      const res = await fetch(`${API_BASE_URL}/compare`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ repos: repos.map(r => r.trim()) }),
