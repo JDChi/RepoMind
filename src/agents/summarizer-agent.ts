@@ -8,11 +8,11 @@ export interface RepoAnalysis {
 
 export async function* streamSummary(
   analyses: RepoAnalysis[],
-  minimaxApiKey: string,
+  apiKey: string,
   baseURL: string,
   modelName: string
 ): AsyncGenerator<string> {
-  const minimax = createMinimaxOpenAI({ apiKey: minimaxApiKey, baseURL })
+  const minimax = createMinimaxOpenAI({ apiKey, baseURL })
   const model = minimax(modelName)
 
   const repoNames = analyses.map(a => a.repo).join(' vs ')

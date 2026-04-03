@@ -12,8 +12,8 @@ function parseRepo(input: string): { owner: string; name: string } {
   throw new Error(`Invalid repo format: "${input}". Expected "owner/repo" or GitHub URL.`)
 }
 
-export async function createRepoAgent(repo: string, minimaxApiKey: string, baseURL: string, modelName: string): Promise<string> {
-  const minimax = createMinimaxOpenAI({ apiKey: minimaxApiKey, baseURL })
+export async function createRepoAgent(repo: string, apiKey: string, baseURL: string, modelName: string): Promise<string> {
+  const minimax = createMinimaxOpenAI({ apiKey, baseURL })
   const model = minimax(modelName)
 
   const { owner, name } = parseRepo(repo)
