@@ -5,6 +5,7 @@ import { streamSummary } from '../agents/summarizer-agent'
 type Env = {
   MINIMAX_API_KEY: string
   OPENAI_BASE_URL: string
+  AI_MODEL_NAME: string
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -32,6 +33,7 @@ app.post('/api/compare', async (c) => {
 
   const minimaxApiKey = c.env.MINIMAX_API_KEY
   const baseURL = c.env.OPENAI_BASE_URL
+  const modelName = c.env.AI_MODEL_NAME
   const { readable, writable } = new TransformStream<Uint8Array, Uint8Array>()
   const writer = writable.getWriter()
 
@@ -41,7 +43,7 @@ app.post('/api/compare', async (c) => {
       const analyses = await Promise.all(
         repos.map(async (repo) => {
           await sseEvent(writer, { type: 'progress', msg: `正在分析 ${repo}...` })
-          const analysis = await createRepoAgent(repo, minimaxApiKey, baseURL)
+          const analysis = await createRepoAgent(repo, minimaxApiKey, baseURL, modelName)
           await sseEvent(writer, { type: 'progress', msg: `✅ ${repo} 分析完成` })
           return { repo, analysis }
         })
@@ -49,7 +51,7 @@ app.post('/api/compare', async (c) => {
 
       // Phase 2: streaming summary
       await sseEvent(writer, { type: 'progress', msg: '正在生成对比报告...' })
-      for await (const chunk of streamSummary(analyses, minimaxApiKey, baseURL)) {
+      for await (const chunk of streamSummary(analyses, minimaxApiKey, baseURL, modelName)) {
         await sseEvent(writer, { type: 'text', chunk })
       }
       await sseEvent(writer, { type: 'done' })

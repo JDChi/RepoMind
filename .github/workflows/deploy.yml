@@ -25,6 +25,8 @@ jobs:
           secrets: |
             MINIMAX_API_KEY
             OPENAI_BASE_URL
+            AI_MODEL_NAME
         env:
           MINIMAX_API_KEY: ${{ secrets.MINIMAX_API_KEY }}
           OPENAI_BASE_URL: ${{ secrets.OPENAI_BASE_URL }}
+          AI_MODEL_NAME: ${{ secrets.AI_MODEL_NAME }}
