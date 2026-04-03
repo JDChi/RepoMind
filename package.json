@@ -1,0 +1,29 @@
+{
+  "name": "repomind",
+  "private": true,
+  "scripts": {
+    "dev:worker": "wrangler dev",
+    "dev:frontend": "vite",
+    "build": "vite build"
+  },
+  "dependencies": {
+    "hono": "^4",
+    "ai": "^4",
+    "vercel-minimax-ai-provider": "latest",
+    "zod": "^3",
+    "react": "^19",
+    "react-dom": "^19",
+    "react-markdown": "^9",
+    "remark-gfm": "^4",
+    "marked": "^14"
+  },
+  "devDependencies": {
+    "wrangler": "^3",
+    "vite": "^6",
+    "@vitejs/plugin-react": "^4",
+    "@cloudflare/workers-types": "latest",
+    "typescript": "^5",
+    "@types/react": "^19",
+    "@types/react-dom": "^19"
+  }
+}
