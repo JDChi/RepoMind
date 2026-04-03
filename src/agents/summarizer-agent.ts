@@ -20,7 +20,6 @@ export async function* streamSummary(
 
   const result = await streamText({
     model,
-    maxSteps: 3,
     system: `你是一个技术选型顾问。根据提供的各仓库分析数据，生成结构化的对比报告。
 报告必须严格按照以下格式输出：
 

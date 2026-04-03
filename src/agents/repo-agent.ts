@@ -7,6 +7,7 @@ export async function createRepoAgent(repo: string, minimaxApiKey: string): Prom
   const model = minimax('MiniMax-M2.5-highspeed')
 
   const [owner, name] = repo.split('/')
+  if (!owner || !name) throw new Error(`Invalid repo format: "${repo}". Expected "owner/repo".`)
 
   const result = await generateText({
     model,

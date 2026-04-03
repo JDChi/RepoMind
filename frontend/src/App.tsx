@@ -37,19 +37,20 @@ export default function App() {
         if (done) break
 
         buffer += decoder.decode(value, { stream: true })
-        const lines = buffer.split('\n')
-        buffer = lines.pop() ?? ''
+        const events = buffer.split('\n\n')
+        buffer = events.pop() ?? ''
 
-        for (const line of lines) {
-          if (!line.startsWith('data: ')) continue
+        for (const event of events) {
+          const line = event.split('\n').find(l => l.startsWith('data: '))
+          if (!line) continue
           try {
-            const event = JSON.parse(line.slice(6))
-            if (event.type === 'progress') {
-              setLogs(prev => [...prev, event.msg])
-            } else if (event.type === 'text') {
-              setReport(prev => prev + event.chunk)
-            } else if (event.type === 'error') {
-              setLogs(prev => [...prev, `❌ 错误: ${event.msg}`])
+            const parsed = JSON.parse(line.slice(6))
+            if (parsed.type === 'progress') {
+              setLogs(prev => [...prev, parsed.msg])
+            } else if (parsed.type === 'text') {
+              setReport(prev => prev + parsed.chunk)
+            } else if (parsed.type === 'error') {
+              setLogs(prev => [...prev, `❌ 错误: ${parsed.msg}`])
             }
           } catch {
             // ignore parse errors

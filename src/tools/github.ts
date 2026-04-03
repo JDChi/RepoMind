@@ -54,10 +54,11 @@ export const githubTools = {
       repo: z.string(),
     }),
     execute: async ({ owner, repo }) => {
-      const data = await githubFetch(`${GITHUB_API}/repos/${owner}/${repo}/contributors?per_page=30`) as any[]
+      const data = await githubFetch(`${GITHUB_API}/repos/${owner}/${repo}/contributors?per_page=100`) as any[]
       if (!Array.isArray(data)) return { totalContributors: 0, top5: [] }
       return {
         totalContributors: data.length,
+        hasMore: data.length === 100,
         top5: data.slice(0, 5).map(c => ({ login: c.login, contributions: c.contributions })),
       }
     },

@@ -8,9 +8,9 @@ type Env = {
 
 const app = new Hono<{ Bindings: Env }>()
 
-function sseEvent(writer: WritableStreamDefaultWriter<Uint8Array>, data: unknown) {
+async function sseEvent(writer: WritableStreamDefaultWriter<Uint8Array>, data: unknown) {
   const encoder = new TextEncoder()
-  writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
+  await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
 }
 
 app.post('/api/compare', async (c) => {
@@ -29,21 +29,21 @@ app.post('/api/compare', async (c) => {
       // Phase 1: parallel repo analysis
       const analyses = await Promise.all(
         repos.map(async (repo) => {
-          sseEvent(writer, { type: 'progress', msg: `正在分析 ${repo}...` })
+          await sseEvent(writer, { type: 'progress', msg: `正在分析 ${repo}...` })
           const analysis = await createRepoAgent(repo, minimaxApiKey)
-          sseEvent(writer, { type: 'progress', msg: `✅ ${repo} 分析完成` })
+          await sseEvent(writer, { type: 'progress', msg: `✅ ${repo} 分析完成` })
           return { repo, analysis }
         })
       )
 
       // Phase 2: streaming summary
-      sseEvent(writer, { type: 'progress', msg: '正在生成对比报告...' })
+      await sseEvent(writer, { type: 'progress', msg: '正在生成对比报告...' })
       for await (const chunk of streamSummary(analyses, minimaxApiKey)) {
-        sseEvent(writer, { type: 'text', chunk })
+        await sseEvent(writer, { type: 'text', chunk })
       }
-      sseEvent(writer, { type: 'done' })
+      await sseEvent(writer, { type: 'done' })
     } catch (err) {
-      sseEvent(writer, { type: 'error', msg: String(err) })
+      await sseEvent(writer, { type: 'error', msg: String(err) })
     } finally {
       writer.close()
     }
