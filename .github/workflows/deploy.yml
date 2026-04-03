@@ -18,16 +18,13 @@ jobs:
 
       - run: npm ci
 
-      - name: Deploy to Cloudflare Workers
-        uses: cloudflare/wrangler-action@v3
-        with:
-          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
-          secrets: |
-            OPENAI_API_KEY
-          vars: |
-            OPENAI_BASE_URL
-            AI_MODEL_NAME
+      - name: Install Wrangler
+        run: npm install -g wrangler
+
+      - name: Deploy
+        run: wrangler deploy
         env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           OPENAI_BASE_URL: ${{ vars.OPENAI_BASE_URL }}
           AI_MODEL_NAME: ${{ vars.AI_MODEL_NAME }}
