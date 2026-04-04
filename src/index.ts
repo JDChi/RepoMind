@@ -85,4 +85,24 @@ app.get('/test3', async (c) => {
   }
 })
 
+app.get('/test4', async (c) => {
+  try {
+    const { generateText } = await import('ai')
+    const { createOpenAI } = await import('@ai-sdk/openai')
+    const openai = createOpenAI({
+      apiKey: c.env.OPENAI_API_KEY,
+      baseURL: c.env.OPENAI_BASE_URL
+    })
+    const model = openai(c.env.AI_MODEL_NAME || 'MiniMax-M2.7')
+    const result = await generateText({
+      model,
+      prompt: 'say hello in 3 words',
+      maxTokens: 50
+    })
+    return c.json({ ok: true, text: result.text })
+  } catch (e) {
+    return c.json({ ok: false, error: String(e) })
+  }
+})
+
 export default app
