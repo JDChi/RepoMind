@@ -20,6 +20,7 @@ app.get('/', (c) => {
 app.get('/test', async (c) => {
   try {
     const baseUrl = c.env.OPENAI_BASE_URL || 'https://api.minimaxi.com/v1'
+    const model = c.env.AI_MODEL_NAME || 'MiniMax-M2.7'
     const res = await fetch(`${baseUrl}/chat/completions`, {
       method: 'POST',
       headers: {
@@ -27,12 +28,33 @@ app.get('/test', async (c) => {
         'Content-Type': 'application/json'
       },
       body: JSON.stringify({
-        model: c.env.AI_MODEL_NAME || 'MiniMax-M2.7',
-        messages: [{ role: 'user', content: 'hi' }]
+        model: model,
+        messages: [{ role: 'user', content: 'say hello in 3 words' }],
+        max_tokens: 50
       })
     })
     const text = await res.text()
-    return c.json({ ok: true, status: res.status, body: text.slice(0, 300) })
+    return c.json({ ok: true, status: res.status, model, body: text.slice(0, 300) })
+  } catch (e) {
+    return c.json({ ok: false, error: String(e) })
+  }
+})
+
+app.get('/test2', async (c) => {
+  try {
+    const { generateText } = await import('ai')
+    const { createMinimaxOpenAI } = await import('vercel-minimax-ai-provider')
+    const minimax = createMinimaxOpenAI({
+      apiKey: c.env.OPENAI_API_KEY,
+      baseURL: c.env.OPENAI_BASE_URL
+    })
+    const model = minimax(c.env.AI_MODEL_NAME || 'MiniMax-M2.7')
+    const result = await generateText({
+      model,
+      prompt: 'say hello in 3 words',
+      maxTokens: 50
+    })
+    return c.json({ ok: true, text: result.text })
   } catch (e) {
     return c.json({ ok: false, error: String(e) })
   }
