@@ -19,11 +19,20 @@ app.get('/', (c) => {
 
 app.get('/test', async (c) => {
   try {
-    const res = await fetch('https://api.minimaxi.com/v1/models', {
-      headers: { 'Authorization': `Bearer ${c.env.OPENAI_API_KEY}` }
+    const baseUrl = c.env.OPENAI_BASE_URL || 'https://api.minimaxi.com/v1'
+    const res = await fetch(`${baseUrl}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${c.env.OPENAI_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        model: c.env.AI_MODEL_NAME || 'MiniMax-M2.7',
+        messages: [{ role: 'user', content: 'hi' }]
+      })
     })
     const text = await res.text()
-    return c.json({ ok: true, status: res.status, body: text.slice(0, 200) })
+    return c.json({ ok: true, status: res.status, body: text.slice(0, 300) })
   } catch (e) {
     return c.json({ ok: false, error: String(e) })
   }
