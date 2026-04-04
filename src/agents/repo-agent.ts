@@ -1,7 +1,7 @@
 // Repo Agent - analyzes GitHub repositories using MiniMax AI v4
 import { streamText } from 'ai'
 import { createMinimaxOpenAI } from 'vercel-minimax-ai-provider'
-import { createGithubTools } from '../tools/github'
+import { createGithubTools, fetchCodeFiles } from '../tools/github'
 
 function parseRepo(input: string): { owner: string; name: string } {
   const trimmed = input.trim()
@@ -78,6 +78,32 @@ async function fetchRepoData(owner: string, repo: string, token?: string): Promi
   return summary
 }
 
+function formatCodeAnalysis(data: {
+  language: string
+  packageManager: string | null
+  dependencyCount: number
+  hasLockFile: boolean
+  hasTests: boolean
+  hasLinter: boolean
+  hasCI: boolean
+  hasDocker: boolean
+  hasAPI: boolean
+  topLevelDirs: string[]
+}): string {
+  let md = `\n\n---\n\n## 🔧 代码技术分析\n\n`
+  md += `| 维度 | 值 |\n|------|-----|\n`
+  md += `| **主要语言** | ${data.language} |\n`
+  md += `| **包管理器** | ${data.packageManager || '未检测到'} |\n`
+  md += `| **依赖数量** | ${data.dependencyCount} ${data.hasLockFile ? '✅ 有锁文件' : '⚠️ 无锁文件'} |\n`
+  md += `| **测试覆盖** | ${data.hasTests ? '✅ 有测试' : '⚠️ 未检测到测试'} |\n`
+  md += `| **代码规范** | ${data.hasLinter ? '✅ 配置了 linter' : '⚠️ 未配置 linter'} |\n`
+  md += `| **CI/CD** | ${data.hasCI ? '✅ 有 CI 配置' : '⚠️ 未检测到'} |\n`
+  md += `| **容器化** | ${data.hasDocker ? '✅ 支持 Docker' : '⚠️ 未检测到'} |\n`
+  md += `| **API 设计** | ${data.hasAPI ? '✅ 使用 Protobuf/GraphQL' : '未检测到 IDL'} |\n`
+  md += `| **目录结构** | ${data.topLevelDirs.join(', ') || '未知'} |\n`
+  return md
+}
+
 export async function* streamRepoAgent(
   repo: string,
   apiKey: string,
@@ -102,6 +128,21 @@ export async function* streamRepoAgent(
   }
 
   yield { type: 'progress', msg: `✅ 数据获取完成，正在生成分析...` }
+
+  // Phase 2: Code technical analysis
+  let codeAnalysis = ''
+  try {
+    const codeData = await fetchCodeFiles(owner, name, githubToken, (msg) => {
+      // Could emit nested progress here
+    })
+    codeAnalysis = formatCodeAnalysis(codeData)
+    yield { type: 'progress', msg: `🔧 代码分析完成` }
+  } catch (e: any) {
+    codeAnalysis = `\n\n---\n\n## 🔧 代码技术分析\n\n获取失败: ${e.message}\n`
+    yield { type: 'progress', msg: `⚠️ 代码分析失败` }
+  }
+
+  repoData += codeAnalysis
 
   // Now use streamText to generate analysis with the collected data
   const result = streamText({

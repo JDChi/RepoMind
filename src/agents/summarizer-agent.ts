@@ -34,6 +34,7 @@ export async function* streamSummary(
 | 活跃度 | | |
 | 社区规模 | | |
 | 代码质量 | | |
+| 架构设计 | | |
 | 生态依赖 | | |
 | 维护状态 | | |
 ## 各仓库详细分析
