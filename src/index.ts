@@ -14,7 +14,7 @@ app.use('*', cors())
 app.route('/', compareRouter)
 
 app.get('/', (c) => {
-  return c.json({ status: 'ok', message: 'RepoMind Worker is running' })
+  return c.json({ status: 'ok', message: 'RepoMind Worker is running', version: 2 })
 })
 
 export default app
