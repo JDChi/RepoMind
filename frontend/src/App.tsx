@@ -24,12 +24,21 @@ function findDuplicates(repos: string[]): string[] {
   return duplicates
 }
 
+interface RepoPanel {
+  repo: string
+  text: string
+  reasoning: string
+  logs: string[]
+  done: boolean
+}
+
 export default function App() {
   const [repos, setRepos] = useState(['', ''])
   const [logs, setLogs] = useState<string[]>([])
   const [report, setReport] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [repoPanels, setRepoPanels] = useState<RepoPanel[]>([])
 
   const canSubmit = !isLoading && repos.every(r => r.trim().includes('/'))
 
@@ -43,6 +52,7 @@ export default function App() {
     setIsLoading(true)
     setLogs([])
     setReport('')
+    setRepoPanels(repos.map(repo => ({ repo: repo.trim(), text: '', reasoning: '', logs: [], done: false })))
 
     try {
       const res = await fetch(`${API_BASE_URL}/api/compare`, {
@@ -72,7 +82,29 @@ export default function App() {
           if (!line) continue
           try {
             const parsed = JSON.parse(line.slice(6))
-            if (parsed.type === 'progress') {
+            if (parsed.type === 'repo_progress') {
+              setRepoPanels(prev => prev.map(p =>
+                p.repo === parsed.repo
+                  ? { ...p, logs: [...p.logs, parsed.msg] }
+                  : p
+              ))
+            } else if (parsed.type === 'repo_text' && typeof parsed.chunk === 'string') {
+              setRepoPanels(prev => prev.map(p =>
+                p.repo === parsed.repo
+                  ? { ...p, text: p.text + parsed.chunk }
+                  : p
+              ))
+            } else if (parsed.type === 'repo_reasoning' && typeof parsed.chunk === 'string') {
+              setRepoPanels(prev => prev.map(p =>
+                p.repo === parsed.repo
+                  ? { ...p, reasoning: p.reasoning + parsed.chunk }
+                  : p
+              ))
+            } else if (parsed.type === 'repo_done') {
+              setRepoPanels(prev => prev.map(p =>
+                p.repo === parsed.repo ? { ...p, done: true } : p
+              ))
+            } else if (parsed.type === 'progress') {
               setLogs(prev => [...prev, parsed.msg])
             } else if (parsed.type === 'text') {
               setReport(prev => prev + parsed.chunk)
@@ -91,8 +123,10 @@ export default function App() {
     }
   }
 
+  const allReposDone = repoPanels.length > 0 && repoPanels.every(p => p.done)
+
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
+    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
       <h1 style={{ marginBottom: '8px' }}>🔍 RepoMind</h1>
       <p style={{ color: '#666', marginBottom: '24px' }}>GitHub 仓库智能对比工具</p>
 
@@ -123,6 +157,35 @@ export default function App() {
         </div>
       )}
 
+      {repoPanels.length > 0 && (
+        <div style={{ display: 'grid', gridTemplateColumns: repoPanels.length === 2 ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '24px' }}>
+          {repoPanels.map(panel => (
+            <div key={panel.repo} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '16px', background: '#fafafa' }}>
+              <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '16px' }}>
+                {panel.repo}
+                {panel.done ? ' ✅' : ' ⏳'}
+              </div>
+              {panel.logs.length > 0 && (
+                <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
+                  {panel.logs.map((log, i) => (
+                    <div key={i}>{log}</div>
+                  ))}
+                </div>
+              )}
+              {panel.reasoning && (
+                <div style={{ fontSize: '13px', color: '#888', fontStyle: 'italic', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>
+                  💭 {panel.reasoning}
+                </div>
+              )}
+              <div style={{ fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
+                {panel.text}
+                {!panel.done && <span style={{ animation: 'blink 1s infinite' }}>|</span>}
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {logs.length > 0 && (
         <div style={{ marginBottom: '24px' }}>
           <ProgressLog logs={logs} />
@@ -137,6 +200,13 @@ export default function App() {
           <ReportView content={report} />
         </>
       )}
+
+      <style>{`
+        @keyframes blink {
+          0%, 100% { opacity: 1; }
+          50% { opacity: 0; }
+        }
+      `}</style>
     </div>
   )
 }

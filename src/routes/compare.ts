@@ -1,5 +1,5 @@
 import { Hono } from 'hono'
-import { createRepoAgent } from '../agents/repo-agent'
+import { streamRepoAgent } from '../agents/repo-agent'
 import { streamSummary } from '../agents/summarizer-agent'
 
 type Env = {
@@ -48,13 +48,27 @@ app.post('/api/compare', async (c) => {
 
   ;(async () => {
     try {
-      // Phase 1: parallel repo analysis
-      const analyses = await Promise.all(
+      // Phase 1: parallel repo analysis (streaming each repo's output)
+      const analyses: Array<{ repo: string; analysis: string }> = []
+
+      await Promise.all(
         repos.map(async (repo) => {
-          await sseEvent(writer, { type: 'progress', msg: `正在分析 ${repo}...` })
-          const analysis = await createRepoAgent(repo, apiKey, baseURL, modelName)
-          await sseEvent(writer, { type: 'progress', msg: `✅ ${repo} 分析完成` })
-          return { repo, analysis }
+          await sseEvent(writer, { type: 'progress', msg: `🚀 开始分析 ${repo}...` })
+
+          let analysisText = ''
+          for await (const event of streamRepoAgent(repo, apiKey, baseURL, modelName)) {
+            if (event.type === 'progress') {
+              await sseEvent(writer, { type: 'repo_progress', repo, msg: event.msg })
+            } else if (event.type === 'text') {
+              analysisText += event.chunk
+              await sseEvent(writer, { type: 'repo_text', repo, chunk: event.chunk })
+            } else if (event.type === 'reasoning') {
+              await sseEvent(writer, { type: 'repo_reasoning', repo, chunk: event.chunk })
+            }
+          }
+
+          await sseEvent(writer, { type: 'repo_done', repo })
+          analyses.push({ repo, analysis: analysisText })
         })
       )
 

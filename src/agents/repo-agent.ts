@@ -1,12 +1,10 @@
 // Repo Agent - analyzes GitHub repositories using MiniMax AI v4
-import { generateText } from 'ai'
+import { streamText } from 'ai'
 import { createMinimaxOpenAI } from 'vercel-minimax-ai-provider'
 import { githubTools } from '../tools/github'
 
 function parseRepo(input: string): { owner: string; name: string } {
-  // Support both "owner/repo" and full GitHub URLs
   const trimmed = input.trim()
-  // Match GitHub URLs like https://github.com/owner/repo or github.com/owner/repo
   const match = trimmed.match(/github\.com\/([^/]+)\/([^/?#]+)/)
   if (match) return { owner: match[1], name: match[2] }
   const parts = trimmed.split('/')
@@ -14,13 +12,23 @@ function parseRepo(input: string): { owner: string; name: string } {
   throw new Error(`Invalid repo format: "${input}". Expected "owner/repo" or GitHub URL.`)
 }
 
-export async function createRepoAgent(repo: string, apiKey: string, baseURL: string, modelName: string): Promise<string> {
+export type RepoEvent =
+  | { type: 'progress'; msg: string }
+  | { type: 'text'; chunk: string }
+  | { type: 'reasoning'; chunk: string }
+
+export async function* streamRepoAgent(
+  repo: string,
+  apiKey: string,
+  baseURL: string,
+  modelName: string
+): AsyncGenerator<RepoEvent> {
   const minimax = createMinimaxOpenAI({ apiKey, baseURL })
   const model = minimax(modelName)
 
   const { owner, name } = parseRepo(repo)
 
-  const result = await generateText({
+  const result = streamText({
     model,
     tools: githubTools,
     maxSteps: 8,
@@ -35,5 +43,15 @@ export async function createRepoAgent(repo: string, apiKey: string, baseURL: str
     prompt: `请分析 GitHub 仓库：${owner}/${name}`,
   })
 
-  return result.text
+  for await (const chunk of result.fullStream) {
+    if (chunk.type === 'tool-call') {
+      yield { type: 'progress', msg: `🔧 调用工具: ${chunk.toolName}` }
+    } else if (chunk.type === 'tool-result') {
+      yield { type: 'progress', msg: `✅ 工具完成: ${chunk.toolName}` }
+    } else if (chunk.type === 'text-delta' && chunk.textDelta) {
+      yield { type: 'text', chunk: chunk.textDelta }
+    } else if (chunk.type === 'reasoning') {
+      yield { type: 'reasoning', chunk: chunk.textDelta }
+    }
+  }
 }
