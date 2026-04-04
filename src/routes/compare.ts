@@ -15,7 +15,14 @@ async function sseEvent(writer: WritableStreamDefaultWriter<Uint8Array>, data: u
   await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
 }
 
-const REPO_REGEX = /^[a-zA-Z0-9._/-]+$/
+function parseRepo(input: string): { owner: string; name: string } {
+  const trimmed = input.trim()
+  const match = trimmed.match(/github\.com\/([^/]+)\/([^/?#]+)/)
+  if (match) return { owner: match[1], name: match[2] }
+  const parts = trimmed.split('/')
+  if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], name: parts[1] }
+  throw new Error(`Invalid repo format: "${input}". Expected "owner/repo" or GitHub URL.`)
+}
 
 app.post('/api/compare', async (c) => {
   const { repos } = await c.req.json<{ repos: string[] }>()
@@ -24,9 +31,11 @@ app.post('/api/compare', async (c) => {
     return c.json({ error: 'Provide 2-3 repos' }, 400)
   }
 
-  // Validate repo format
+  // Validate and parse repo format (supports both "owner/repo" and GitHub URLs)
   for (const repo of repos) {
-    if (!REPO_REGEX.test(repo.trim())) {
+    try {
+      parseRepo(repo)
+    } catch {
       return c.json({ error: `Invalid repo format: "${repo}". Use "owner/repo" or GitHub URL.` }, 400)
     }
   }
