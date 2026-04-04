@@ -119,7 +119,7 @@ export async function* streamRepoAgent(
 
   yield { type: 'progress', msg: `📡 正在获取 ${owner}/${name} 的 GitHub 数据...` }
 
-  // Fetch data directly (bypass model tool-calling which is broken on MiniMax)
+  // Fetch GitHub metadata (stars, forks, commits, contributors, etc.)
   let repoData: string
   try {
     repoData = await fetchRepoData(owner, name, githubToken)
@@ -127,22 +127,19 @@ export async function* streamRepoAgent(
     repoData = `获取数据失败: ${e.message}`
   }
 
-  yield { type: 'progress', msg: `✅ 数据获取完成，正在生成分析...` }
-
-  // Phase 2: Code technical analysis
+  // Phase 2: Code technical analysis (file structure, tests, linter, CI, etc.)
+  yield { type: 'progress', msg: `🔧 正在分析代码结构...` }
   let codeAnalysis = ''
   try {
-    const codeData = await fetchCodeFiles(owner, name, githubToken, (msg) => {
-      // Could emit nested progress here
-    })
+    const codeData = await fetchCodeFiles(owner, name, githubToken)
     codeAnalysis = formatCodeAnalysis(codeData)
-    yield { type: 'progress', msg: `🔧 代码分析完成` }
   } catch (e: any) {
     codeAnalysis = `\n\n---\n\n## 🔧 代码技术分析\n\n获取失败: ${e.message}\n`
-    yield { type: 'progress', msg: `⚠️ 代码分析失败` }
   }
 
   repoData += codeAnalysis
+
+  yield { type: 'progress', msg: `🤖 正在生成分析...` }
 
   // Now use streamText to generate analysis with the collected data
   const result = streamText({
@@ -159,16 +156,23 @@ export async function* streamRepoAgent(
     prompt: `请根据以下数据，分析 GitHub 仓库 ${owner}/${name}：
 
 ${repoData}`,
+    onFinish: (params) => {
+      console.log(`[repo-agent] AI finish: finishReason=${params.finishReason}, textLength=${params.text?.length}`)
+    },
   })
 
-  for await (const chunk of result.fullStream) {
-    if (chunk.type === 'text-delta' && chunk.textDelta) {
-      yield { type: 'text', chunk: chunk.textDelta }
-    } else if (chunk.type === 'reasoning') {
-      yield { type: 'reasoning', chunk: chunk.textDelta }
-    } else if (chunk.type === 'reasoning-delta') {
-      // @ts-ignore
-      yield { type: 'reasoning', chunk: chunk.text }
+  try {
+    for await (const chunk of result.fullStream) {
+      if (chunk.type === 'text-delta' && chunk.textDelta) {
+        yield { type: 'text', chunk: chunk.textDelta }
+      } else if (chunk.type === 'reasoning') {
+        yield { type: 'reasoning', chunk: chunk.textDelta }
+      } else if (chunk.type === 'reasoning-delta') {
+        // @ts-ignore
+        yield { type: 'reasoning', chunk: chunk.text }
+      }
     }
+  } catch (e: any) {
+    yield { type: 'progress', msg: `❌ AI 分析出错: ${e.message}` }
   }
 }
