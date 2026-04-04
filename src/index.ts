@@ -56,6 +56,31 @@ app.get('/test2', async (c) => {
     })
     return c.json({ ok: true, text: result.text })
   } catch (e) {
+    const err = e as { message?: string; cause?: string }
+    return c.json({ ok: false, error: err.message || String(e), cause: err.cause })
+  }
+})
+
+app.get('/test3', async (c) => {
+  try {
+    const { generateText } = await import('ai')
+    const { createMinimaxOpenAI } = await import('vercel-minimax-ai-provider')
+    // Try using env var directly
+    process.env.OPENAI_API_KEY = c.env.OPENAI_API_KEY
+    process.env.OPENAI_BASE_URL = c.env.OPENAI_BASE_URL
+    process.env.AI_MODEL_NAME = c.env.AI_MODEL_NAME
+    const minimax = createMinimaxOpenAI({
+      apiKey: c.env.OPENAI_API_KEY,
+      baseURL: c.env.OPENAI_BASE_URL
+    })
+    const model = minimax(c.env.AI_MODEL_NAME || 'MiniMax-M2.7')
+    const result = await generateText({
+      model,
+      prompt: 'say hello in 3 words',
+      maxTokens: 50
+    })
+    return c.json({ ok: true, text: result.text })
+  } catch (e) {
     return c.json({ ok: false, error: String(e) })
   }
 })
