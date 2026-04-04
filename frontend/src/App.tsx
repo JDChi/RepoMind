@@ -50,6 +50,12 @@ export default function App() {
     })
   }, [repoPanels, isLoading])
 
+  // Auto-scroll report section when content streams
+  useEffect(() => {
+    if (!report) return
+    window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
+  }, [report])
+
   const handleCompare = async () => {
     const dups = findDuplicates(repos)
     if (dups.length > 0) {
