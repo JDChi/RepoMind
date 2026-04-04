@@ -4,4 +4,7 @@ compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
 [vars]
-# wrangler secret put MINIMAX_API_KEY
+OPENAI_BASE_URL = "https://api.minimaxi.com/v1"
+AI_MODEL_NAME = "MiniMax-M2.7-highspeed"
+
+# For secrets, use: wrangler secret put MINIMAX_API_KEY
