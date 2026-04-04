@@ -16,6 +16,7 @@ export type RepoEvent =
   | { type: 'progress'; msg: string }
   | { type: 'text'; chunk: string }
   | { type: 'reasoning'; chunk: string }
+  | { type: 'usage'; promptTokens: number; completionTokens: number; totalTokens: number }
 
 async function fetchRepoData(owner: string, repo: string, token?: string): Promise<string> {
   // Import the tools and manually call them
@@ -161,10 +162,18 @@ export async function* streamRepoAgent(
     prompt: `请根据以下数据，分析 GitHub 仓库 ${owner}/${name}：
 
 ${repoData}`,
-    onFinish: (params) => {
-      console.log(`[repo-agent] AI finish: finishReason=${params.finishReason}, textLength=${params.text?.length}`)
-    },
   })
+
+  let usageInfo: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null
+  result.onFinish = (params) => {
+    if (params.usage) {
+      usageInfo = {
+        promptTokens: params.usage.promptTokens,
+        completionTokens: params.usage.completionTokens,
+        totalTokens: params.usage.totalTokens,
+      }
+    }
+  }
 
   try {
     for await (const chunk of result.fullStream) {
@@ -179,5 +188,9 @@ ${repoData}`,
     }
   } catch (e: any) {
     yield { type: 'progress', msg: `❌ AI 分析出错: ${e.message}` }
+  }
+
+  if (usageInfo) {
+    yield { type: 'usage', ...usageInfo }
   }
 }

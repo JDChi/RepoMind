@@ -48,15 +48,18 @@ app.post('/api/compare', async (c) => {
   const writer = writable.getWriter()
 
   ;(async () => {
+    const startTime = Date.now()
     try {
       // Phase 1: parallel repo analysis (streaming each repo's output)
       const analyses: Array<{ repo: string; analysis: string }> = []
+      const repoStats: Array<{ repo: string; promptTokens: number; completionTokens: number; totalTokens: number }> = []
 
       await Promise.all(
         repos.map(async (repo) => {
           await sseEvent(writer, { type: 'progress', msg: `🚀 开始分析 ${repo}...` })
 
           let analysisText = ''
+          let repoTokens = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
           for await (const event of streamRepoAgent(repo, apiKey, baseURL, modelName, c.env.GITHUB_TOKEN)) {
             if (event.type === 'progress') {
               await sseEvent(writer, { type: 'repo_progress', repo, msg: event.msg })
@@ -64,14 +67,16 @@ app.post('/api/compare', async (c) => {
               analysisText += event.chunk
               await sseEvent(writer, { type: 'repo_text', repo, chunk: event.chunk })
             } else if (event.type === 'reasoning') {
-              // MiniMax outputs via reasoning channel, also accumulate as analysis
               analysisText += event.chunk
               await sseEvent(writer, { type: 'repo_reasoning', repo, chunk: event.chunk })
+            } else if (event.type === 'usage') {
+              repoTokens = { promptTokens: event.promptTokens, completionTokens: event.completionTokens, totalTokens: event.totalTokens }
             }
           }
 
           await sseEvent(writer, { type: 'repo_done', repo })
           analyses.push({ repo, analysis: analysisText })
+          repoStats.push({ repo, ...repoTokens })
         })
       )
 
@@ -80,6 +85,13 @@ app.post('/api/compare', async (c) => {
       for await (const chunk of streamSummary(analyses, apiKey, baseURL, modelName)) {
         await sseEvent(writer, { type: 'text', chunk })
       }
+
+      // Print stats
+      const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
+      const totalTokens = repoStats.reduce((s, r) => s + r.totalTokens, 0)
+      const totalPrompt = repoStats.reduce((s, r) => s + r.promptTokens, 0)
+      const totalCompletion = repoStats.reduce((s, r) => s + r.completionTokens, 0)
+      await sseEvent(writer, { type: 'progress', msg: `✅ 分析完成！耗时 ${elapsed}s | 💰 共消耗 ${totalTokens} tokens (prompt: ${totalPrompt}, completion: ${totalCompletion})` })
       await sseEvent(writer, { type: 'done' })
     } catch (err) {
       // Don't expose internal errors to client
