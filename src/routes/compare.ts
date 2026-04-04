@@ -6,6 +6,7 @@ type Env = {
   OPENAI_API_KEY: string
   OPENAI_BASE_URL: string
   AI_MODEL_NAME: string
+  GITHUB_TOKEN?: string
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -56,13 +57,15 @@ app.post('/api/compare', async (c) => {
           await sseEvent(writer, { type: 'progress', msg: `🚀 开始分析 ${repo}...` })
 
           let analysisText = ''
-          for await (const event of streamRepoAgent(repo, apiKey, baseURL, modelName)) {
+          for await (const event of streamRepoAgent(repo, apiKey, baseURL, modelName, c.env.GITHUB_TOKEN)) {
             if (event.type === 'progress') {
               await sseEvent(writer, { type: 'repo_progress', repo, msg: event.msg })
             } else if (event.type === 'text') {
               analysisText += event.chunk
               await sseEvent(writer, { type: 'repo_text', repo, chunk: event.chunk })
             } else if (event.type === 'reasoning') {
+              // MiniMax outputs via reasoning channel, also accumulate as analysis
+              analysisText += event.chunk
               await sseEvent(writer, { type: 'repo_reasoning', repo, chunk: event.chunk })
             }
           }

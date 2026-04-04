@@ -26,13 +26,8 @@ export function RepoInput({ repos, onChange, disabled }: Props) {
     onChange(next)
   }
 
-  const add = () => {
-    if (repos.length < 3) onChange([...repos, ''])
-  }
-
-  const remove = (i: number) => {
-    if (repos.length > 2) onChange(repos.filter((_, idx) => idx !== i))
-  }
+  const add = () => { if (repos.length < 3) onChange([...repos, '']) }
+  const remove = (i: number) => { if (repos.length > 2) onChange(repos.filter((_, idx) => idx !== i)) }
 
   const searchRepos = (query: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -43,9 +38,10 @@ export function RepoInput({ repos, onChange, disabled }: Props) {
     }
     debounceRef.current = setTimeout(async () => {
       try {
-        const res = await fetch(`https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=5`, {
-          headers: { 'User-Agent': 'RepoMind' },
-        })
+        const res = await fetch(
+          `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=5`,
+          { headers: { 'User-Agent': 'RepoMind' } }
+        )
         if (!res.ok) return
         const data = await res.json()
         setSuggestions(data.items?.map((item: any) => ({
@@ -54,9 +50,7 @@ export function RepoInput({ repos, onChange, disabled }: Props) {
           description: item.description || '',
         })) || [])
         setActiveIndex(-1)
-      } catch {
-        setSuggestions([])
-      }
+      } catch { setSuggestions([]) }
     }, 300)
   }
 
@@ -82,86 +76,54 @@ export function RepoInput({ repos, onChange, disabled }: Props) {
 
   const handleKeyDown = (e: React.KeyboardEvent, i: number) => {
     if (suggestions.length === 0) return
-    if (e.key === 'ArrowDown') {
-      e.preventDefault()
-      setActiveIndex(prev => Math.min(prev + 1, suggestions.length - 1))
-    } else if (e.key === 'ArrowUp') {
-      e.preventDefault()
-      setActiveIndex(prev => Math.max(prev - 1, -1))
-    } else if (e.key === 'Enter' && activeIndex >= 0) {
-      e.preventDefault()
-      selectSuggestion(i, suggestions[activeIndex])
-    } else if (e.key === 'Escape') {
-      setSuggestions([])
-    }
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActiveIndex(prev => Math.min(prev + 1, suggestions.length - 1)) }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActiveIndex(prev => Math.max(prev - 1, -1)) }
+    else if (e.key === 'Enter' && activeIndex >= 0) { e.preventDefault(); selectSuggestion(i, suggestions[activeIndex]) }
+    else if (e.key === 'Escape') { setSuggestions([]) }
   }
 
   return (
-    <div ref={containerRef} style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-      {repos.map((repo, i) => (
-        <div key={i} style={{ display: 'flex', gap: '8px', alignItems: 'center', position: 'relative' }}>
-          <input
-            type="text"
-            value={repo}
-            onChange={e => {
-              update(i, e.target.value)
-              searchRepos(e.target.value)
-            }}
-            onFocus={() => {
-              if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current)
-              setFocusedInput(i)
-              if (repo) searchRepos(repo)
-            }}
-            onBlur={() => {
-              blurTimeoutRef.current = setTimeout(() => setFocusedInput(null), 200)
-            }}
-            onKeyDown={e => handleKeyDown(e, i)}
-            placeholder="owner/repo (e.g. vercel/ai)"
-            disabled={disabled}
-            style={{ flex: 1, padding: '8px', fontSize: '14px', borderRadius: '4px', border: '1px solid #ccc' }}
-          />
-          {repos.length > 2 && (
-            <button onClick={() => remove(i)} disabled={disabled} style={{ padding: '8px' }}>✕</button>
-          )}
-          {focusedInput === i && suggestions.length > 0 && (
-            <div style={{
-              position: 'absolute',
-              top: '100%',
-              left: 0,
-              right: repos.length > 2 ? '48px' : 0,
-              background: 'white',
-              border: '1px solid #ccc',
-              borderRadius: '4px',
-              boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-              zIndex: 100,
-              maxHeight: '200px',
-              overflow: 'auto',
-            }}>
-              {suggestions.map((sug, idx) => (
-                <div
-                  key={`${sug.owner}/${sug.repo}`}
-                  onClick={() => selectSuggestion(i, sug)}
-                  style={{
-                    padding: '8px 12px',
-                    cursor: 'pointer',
-                    background: idx === activeIndex ? '#f0f0f0' : 'white',
-                    borderBottom: idx < suggestions.length - 1 ? '1px solid #eee' : 'none',
-                  }}
-                >
-                  <div style={{ fontWeight: 600, fontSize: '14px' }}>{sug.owner}/{sug.repo}</div>
-                  <div style={{ fontSize: '12px', color: '#666', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                    {sug.description}
+    <div ref={containerRef}>
+      <div className="repo-inputs">
+        {repos.map((repo, i) => (
+          <div key={i} className="repo-input-wrap">
+            <input
+              type="text"
+              className="repo-input"
+              value={repo}
+              onChange={e => { update(i, e.target.value); searchRepos(e.target.value) }}
+              onFocus={() => {
+                if (blurTimeoutRef.current) clearTimeout(blurTimeoutRef.current)
+                setFocusedInput(i)
+                if (repo) searchRepos(repo)
+              }}
+              onBlur={() => { blurTimeoutRef.current = setTimeout(() => setFocusedInput(null), 200) }}
+              onKeyDown={e => handleKeyDown(e, i)}
+              placeholder="owner/repo (e.g. vercel/ai)"
+              disabled={disabled}
+            />
+            {repos.length > 2 && (
+              <button className="remove-btn" onClick={() => remove(i)} disabled={disabled}>✕</button>
+            )}
+            {focusedInput === i && suggestions.length > 0 && (
+              <div className="suggestions">
+                {suggestions.map((sug, idx) => (
+                  <div
+                    key={`${sug.owner}/${sug.repo}`}
+                    className={`suggestion-item ${idx === activeIndex ? 'active' : ''}`}
+                    onClick={() => selectSuggestion(i, sug)}
+                  >
+                    <div className="sg-name">{sug.owner}/{sug.repo}</div>
+                    <div className="sg-desc">{sug.description}</div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      ))}
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
       {repos.length < 3 && (
-        <button onClick={add} disabled={disabled} style={{ alignSelf: 'flex-start', padding: '6px 12px' }}>
-          + 添加仓库
-        </button>
+        <button className="add-btn" onClick={add} disabled={disabled}>+ 添加仓库</button>
       )}
     </div>
   )

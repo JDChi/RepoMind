@@ -29,8 +29,8 @@ export function ExportButton({ report, disabled }: Props) {
   body { max-width: 900px; margin: 40px auto; padding: 0 20px; font-family: -apple-system, sans-serif; line-height: 1.6; }
   table { border-collapse: collapse; width: 100%; }
   th, td { border: 1px solid #ddd; padding: 8px 12px; text-align: left; }
-  th { background: #f5f5f5; }
-  code { background: #f0f0f0; padding: 2px 4px; border-radius: 3px; }
+  th { background: #f5f5f5; font-weight: 600; }
+  code { background: #f0f0f0; padding: 2px 4px; border-radius: 3px; font-family: monospace; }
   pre { background: #f0f0f0; padding: 16px; border-radius: 4px; overflow-x: auto; }
 </style>
 </head>
@@ -40,13 +40,9 @@ export function ExportButton({ report, disabled }: Props) {
   }
 
   return (
-    <div style={{ display: 'flex', gap: '8px' }}>
-      <button onClick={exportMd} disabled={disabled} style={{ padding: '8px 16px' }}>
-        导出 Markdown
-      </button>
-      <button onClick={exportHtml} disabled={disabled} style={{ padding: '8px 16px' }}>
-        导出 HTML
-      </button>
+    <div className="export-row">
+      <button className="export-btn" onClick={exportMd} disabled={disabled}>📄 Markdown</button>
+      <button className="export-btn" onClick={exportHtml} disabled={disabled}>🌐 HTML</button>
     </div>
   )
 }

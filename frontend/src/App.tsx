@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { RepoInput } from './components/RepoInput'
-import { ProgressLog } from './components/ProgressLog'
 import { ReportView } from './components/ReportView'
 import { ExportButton } from './components/ExportButton'
 
@@ -33,7 +32,7 @@ interface RepoPanel {
 }
 
 export default function App() {
-  const [repos, setRepos] = useState(['', ''])
+  const [repos, setRepos] = useState(['vercel/ai', 'crewAIInc/crewAI'])
   const [logs, setLogs] = useState<string[]>([])
   const [report, setReport] = useState('')
   const [isLoading, setIsLoading] = useState(false)
@@ -61,9 +60,7 @@ export default function App() {
         body: JSON.stringify({ repos: repos.map(r => r.trim()) }),
       })
 
-      if (!res.ok || !res.body) {
-        throw new Error(`HTTP ${res.status}`)
-      }
+      if (!res.ok || !res.body) throw new Error(`HTTP ${res.status}`)
 
       const reader = res.body.getReader()
       const decoder = new TextDecoder()
@@ -84,21 +81,15 @@ export default function App() {
             const parsed = JSON.parse(line.slice(6))
             if (parsed.type === 'repo_progress') {
               setRepoPanels(prev => prev.map(p =>
-                p.repo === parsed.repo
-                  ? { ...p, logs: [...p.logs, parsed.msg] }
-                  : p
+                p.repo === parsed.repo ? { ...p, logs: [...p.logs, parsed.msg] } : p
               ))
             } else if (parsed.type === 'repo_text' && typeof parsed.chunk === 'string') {
               setRepoPanels(prev => prev.map(p =>
-                p.repo === parsed.repo
-                  ? { ...p, text: p.text + parsed.chunk }
-                  : p
+                p.repo === parsed.repo ? { ...p, text: p.text + parsed.chunk } : p
               ))
             } else if (parsed.type === 'repo_reasoning' && typeof parsed.chunk === 'string') {
               setRepoPanels(prev => prev.map(p =>
-                p.repo === parsed.repo
-                  ? { ...p, reasoning: p.reasoning + parsed.chunk }
-                  : p
+                p.repo === parsed.repo ? { ...p, reasoning: p.reasoning + parsed.chunk } : p
               ))
             } else if (parsed.type === 'repo_done') {
               setRepoPanels(prev => prev.map(p =>
@@ -111,9 +102,7 @@ export default function App() {
             } else if (parsed.type === 'error') {
               setLogs(prev => [...prev, `❌ 错误: ${parsed.msg}`])
             }
-          } catch {
-            // ignore parse errors
-          }
+          } catch { /* ignore */ }
         }
       }
     } catch (err) {
@@ -123,90 +112,98 @@ export default function App() {
     }
   }
 
-  const allReposDone = repoPanels.length > 0 && repoPanels.every(p => p.done)
-
   return (
-    <div style={{ maxWidth: '1200px', margin: '0 auto', padding: '40px 20px', fontFamily: '-apple-system, BlinkMacSystemFont, sans-serif' }}>
-      <h1 style={{ marginBottom: '8px' }}>🔍 RepoMind</h1>
-      <p style={{ color: '#666', marginBottom: '24px' }}>GitHub 仓库智能对比工具</p>
+    <div className="page">
+      <header className="header">
+        <div className="logo-row">
+          <div className="logo-icon">🔍</div>
+          <span className="logo-text">RepoMind</span>
+        </div>
+        <p className="header-subtitle">GitHub 仓库智能对比工具</p>
+      </header>
 
-      <div style={{ marginBottom: '16px' }}>
+      <div className="input-section">
         <RepoInput repos={repos} onChange={setRepos} disabled={isLoading} />
       </div>
 
       <button
+        className="compare-btn"
         onClick={handleCompare}
         disabled={!canSubmit}
-        style={{
-          padding: '10px 24px',
-          fontSize: '15px',
-          background: canSubmit ? '#0070f3' : '#ccc',
-          color: 'white',
-          border: 'none',
-          borderRadius: '6px',
-          cursor: canSubmit ? 'pointer' : 'not-allowed',
-          marginBottom: '24px',
-        }}
       >
-        {isLoading ? '分析中...' : '开始对比'}
+        {isLoading ? (
+          <>
+            <div className="spinner" />
+            分析中...
+          </>
+        ) : '开始对比'}
       </button>
 
       {error && (
-        <div style={{ marginBottom: '16px', padding: '12px', background: '#fee', border: '1px solid #f00', borderRadius: '6px', color: '#c00' }}>
-          {error}
+        <div className="error-msg">
+          <span>⚠️</span> {error}
         </div>
       )}
 
       {repoPanels.length > 0 && (
-        <div style={{ display: 'grid', gridTemplateColumns: repoPanels.length === 2 ? '1fr 1fr' : '1fr', gap: '16px', marginBottom: '24px' }}>
+        <div className={`analysis-grid ${repoPanels.length === 2 ? 'cols-2' : 'cols-3'}`}>
           {repoPanels.map(panel => (
-            <div key={panel.repo} style={{ border: '1px solid #ccc', borderRadius: '8px', padding: '16px', background: '#fafafa' }}>
-              <div style={{ fontWeight: 600, marginBottom: '12px', fontSize: '16px' }}>
-                {panel.repo}
-                {panel.done ? ' ✅' : ' ⏳'}
+            <div key={panel.repo} className="analysis-panel">
+              <div className="panel-header">
+                <a
+                  className="panel-repo"
+                  href={`https://github.com/${panel.repo}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={e => e.stopPropagation()}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  {panel.repo}
+                </a>
+                <span className={`panel-badge ${panel.done ? 'done' : 'loading'}`}>
+                  {!panel.done && <span className="dot" />}
+                  {panel.done ? '✅ 完成' : '⏳ 分析中'}
+                </span>
               </div>
-              {panel.logs.length > 0 && (
-                <div style={{ fontSize: '12px', color: '#666', marginBottom: '8px' }}>
-                  {panel.logs.map((log, i) => (
-                    <div key={i}>{log}</div>
-                  ))}
+              <div className="panel-body">
+                {panel.logs.length > 0 && (
+                  <div className="logs-section">
+                    {panel.logs.map((log, i) => (
+                      <div key={i} className="log-item">{log}</div>
+                    ))}
+                  </div>
+                )}
+                {panel.reasoning && (
+                  <div className="reasoning-section">
+                    <div className="reasoning-label">思考过程</div>
+                    <div className="reasoning-text">{panel.reasoning}</div>
+                  </div>
+                )}
+                <div className="analysis-text">
+                  {panel.text}
+                  {!panel.done && <span className="streaming-cursor" />}
                 </div>
-              )}
-              {panel.reasoning && (
-                <div style={{ fontSize: '13px', color: '#888', fontStyle: 'italic', marginBottom: '8px', whiteSpace: 'pre-wrap' }}>
-                  💭 {panel.reasoning}
-                </div>
-              )}
-              <div style={{ fontSize: '14px', lineHeight: '1.6', whiteSpace: 'pre-wrap' }}>
-                {panel.text}
-                {!panel.done && <span style={{ animation: 'blink 1s infinite' }}>|</span>}
               </div>
             </div>
           ))}
         </div>
       )}
 
-      {logs.length > 0 && (
-        <div style={{ marginBottom: '24px' }}>
-          <ProgressLog logs={logs} />
-        </div>
-      )}
 
       {report && (
-        <>
-          <div style={{ marginBottom: '16px' }}>
+        <div className="report-section">
+          <div className="report-header">
+            <h2 className="report-title">
+              📋 对比报告
+              {isLoading && <span className="summary-badge">生成中...</span>}
+            </h2>
             <ExportButton report={report} disabled={isLoading} />
           </div>
-          <ReportView content={report} />
-        </>
+          <div className="report-content">
+            <ReportView content={report} />
+          </div>
+        </div>
       )}
-
-      <style>{`
-        @keyframes blink {
-          0%, 100% { opacity: 1; }
-          50% { opacity: 0; }
-        }
-      `}</style>
     </div>
   )
 }
