@@ -5,7 +5,8 @@ import { githubTools } from '../tools/github'
 function parseRepo(input: string): { owner: string; name: string } {
   // Support both "owner/repo" and full GitHub URLs
   const trimmed = input.trim()
-  const match = trimmed.match(/github\.com\/([^/]+)\/([^/]+)/)
+  // Match GitHub URLs like https://github.com/owner/repo or github.com/owner/repo
+  const match = trimmed.match(/github\.com\/([^/]+)\/([^/?#]+)/)
   if (match) return { owner: match[1], name: match[2] }
   const parts = trimmed.split('/')
   if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], name: parts[1] }
