@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { RepoInput } from './components/RepoInput'
 import { ReportView } from './components/ReportView'
 import { ExportButton } from './components/ExportButton'
@@ -38,8 +38,17 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [repoPanels, setRepoPanels] = useState<RepoPanel[]>([])
+  const panelBodyRefs = useRef<Record<string, HTMLDivElement | null>>({})
 
   const canSubmit = !isLoading && repos.every(r => r.trim().includes('/'))
+
+  // Auto-scroll panel to bottom when content streams
+  useEffect(() => {
+    if (!isLoading) return
+    Object.values(panelBodyRefs.current).forEach(el => {
+      if (el) el.scrollTop = el.scrollHeight
+    })
+  }, [repoPanels, isLoading])
 
   const handleCompare = async () => {
     const dups = findDuplicates(repos)
@@ -165,7 +174,10 @@ export default function App() {
                   {panel.done ? '✅ 完成' : '⏳ 分析中'}
                 </span>
               </div>
-              <div className="panel-body">
+              <div
+                className="panel-body"
+                ref={el => { panelBodyRefs.current[panel.repo] = el }}
+              >
                 {panel.logs.length > 0 && (
                   <div className="logs-section">
                     {panel.logs.map((log, i) => (
