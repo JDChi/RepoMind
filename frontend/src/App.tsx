@@ -41,45 +41,69 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [repoPanels, setRepoPanels] = useState<RepoPanel[]>([])
   const panelBodyRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  // RAF refs for typewriter effect per repo
+  // RAF + time-based typewriter state per repo
   const textRafRefs = useRef<Record<string, number | null>>({})
   const reasoningRafRefs = useRef<Record<string, number | null>>({})
-  // Full text refs (used by RAF to avoid stale closures)
+  const textStartTimeRefs = useRef<Record<string, number>>({})
+  const reasoningStartTimeRefs = useRef<Record<string, number>>({})
+  // Full text (source of truth for RAF)
   const textFullRefs = useRef<Record<string, string>>({})
   const reasoningFullRefs = useRef<Record<string, string>>({})
-  const textDisplayedRefs = useRef<Record<string, number>>({})
-  const reasoningDisplayedRefs = useRef<Record<string, number>>({})
 
   const canSubmit = !isLoading && repos.every(r => r.trim().includes('/'))
 
-  // RAF-based typewriter reveal: gradually show chars at ~12ms/char
+  // Time-based typewriter: reveal ~20 chars/sec smoothly
   const revealText = (repo: string) => {
     const full = textFullRefs.current[repo] || ''
-    const displayed = textDisplayedRefs.current[repo] || 0
-    if (displayed >= full.length) return
+    const startTime = textStartTimeRefs.current[repo]
+    if (!startTime) return
 
-    // Reveal 2 chars per frame (~16ms), capped at full length
-    const next = Math.min(displayed + 2, full.length)
-    textDisplayedRefs.current[repo] = next
-    setRepoPanels(prev => prev.map(p =>
-      p.repo === repo ? { ...p, displayedText: full.slice(0, next) } : p
-    ))
+    const elapsed = Date.now() - startTime
+    const charsToShow = Math.floor((elapsed / 1000) * 20) // 20 chars/sec
+    const prevDisplayed = textFullRefs.current[repo] ? 0 : 0
 
-    textRafRefs.current[repo] = requestAnimationFrame(() => revealText(repo))
+    // Only update if there are new chars to show
+    const currentPanel = panelBodyRefs.current[repo]
+    if (!currentPanel) return
+
+    // Directly manipulate DOM for performance + smoothness
+    const textEl = currentPanel.querySelector('.analysis-text')
+    if (textEl) {
+      textEl.textContent = full.slice(0, charsToShow)
+      const cursor = currentPanel.querySelector('.streaming-cursor')
+      if (cursor) {
+        if (charsToShow >= full.length) {
+          cursor.style.display = 'inline'
+        } else {
+          cursor.style.display = 'inline'
+        }
+      }
+    }
+
+    if (charsToShow < full.length) {
+      textRafRefs.current[repo] = requestAnimationFrame(() => revealText(repo))
+    }
   }
 
   const revealReasoning = (repo: string) => {
     const full = reasoningFullRefs.current[repo] || ''
-    const displayed = reasoningDisplayedRefs.current[repo] || 0
-    if (displayed >= full.length) return
+    const startTime = reasoningStartTimeRefs.current[repo]
+    if (!startTime) return
 
-    const next = Math.min(displayed + 2, full.length)
-    reasoningDisplayedRefs.current[repo] = next
-    setRepoPanels(prev => prev.map(p =>
-      p.repo === repo ? { ...p, displayedReasoning: full.slice(0, next) } : p
-    ))
+    const elapsed = Date.now() - startTime
+    const charsToShow = Math.floor((elapsed / 1000) * 20)
 
-    reasoningRafRefs.current[repo] = requestAnimationFrame(() => revealReasoning(repo))
+    const currentPanel = panelBodyRefs.current[repo]
+    if (!currentPanel) return
+
+    const reasoningEl = currentPanel.querySelector('.reasoning-text')
+    if (reasoningEl) {
+      reasoningEl.textContent = full.slice(0, charsToShow)
+    }
+
+    if (charsToShow < full.length) {
+      reasoningRafRefs.current[repo] = requestAnimationFrame(() => revealReasoning(repo))
+    }
   }
 
   // Auto-scroll panel to bottom when content streams
@@ -148,26 +172,46 @@ export default function App() {
               ))
             } else if (parsed.type === 'repo_text' && typeof parsed.chunk === 'string') {
               const repo = parsed.repo
-              const newFull = (textFullRefs.current[repo] || '') + parsed.chunk
-              textFullRefs.current[repo] = newFull
+              // Start timer on first chunk
+              if (!textStartTimeRefs.current[repo]) {
+                textStartTimeRefs.current[repo] = Date.now()
+              }
+              textFullRefs.current[repo] = (textFullRefs.current[repo] || '') + parsed.chunk
               // Start or continue RAF reveal
               if (!textRafRefs.current[repo]) {
                 textRafRefs.current[repo] = requestAnimationFrame(() => revealText(repo))
               }
             } else if (parsed.type === 'repo_reasoning' && typeof parsed.chunk === 'string') {
               const repo = parsed.repo
-              const newFull = (reasoningFullRefs.current[repo] || '') + parsed.chunk
-              reasoningFullRefs.current[repo] = newFull
+              if (!reasoningStartTimeRefs.current[repo]) {
+                reasoningStartTimeRefs.current[repo] = Date.now()
+              }
+              reasoningFullRefs.current[repo] = (reasoningFullRefs.current[repo] || '') + parsed.chunk
               if (!reasoningRafRefs.current[repo]) {
                 reasoningRafRefs.current[repo] = requestAnimationFrame(() => revealReasoning(repo))
               }
             } else if (parsed.type === 'repo_done') {
               const repo = parsed.repo
-              // Cancel RAFs and flush all text
+              // Cancel RAFs and flush all remaining text to DOM
               if (textRafRefs.current[repo]) {
                 cancelAnimationFrame(textRafRefs.current[repo]!)
                 textRafRefs.current[repo] = null
               }
+              if (reasoningRafRefs.current[repo]) {
+                cancelAnimationFrame(reasoningRafRefs.current[repo]!)
+                reasoningRafRefs.current[repo] = null
+              }
+              // Flush remaining to displayed state
+              setRepoPanels(prev => prev.map(p =>
+                p.repo === repo
+                  ? {
+                      ...p,
+                      done: true,
+                      displayedText: textFullRefs.current[repo] || '',
+                      displayedReasoning: reasoningFullRefs.current[repo] || '',
+                    }
+                  : p
+              ))
               if (reasoningRafRefs.current[repo]) {
                 cancelAnimationFrame(reasoningRafRefs.current[repo]!)
                 reasoningRafRefs.current[repo] = null

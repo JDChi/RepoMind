@@ -71,7 +71,7 @@ async function fetchRepoData(owner: string, repo: string, token?: string): Promi
     try {
       const data = await readmeRes.value.json() as { content: string }
       const content = atob(data.content.replace(/\n/g, ''))
-      summary += `\n**README 摘要**: ${content.slice(0, 300)}...\n`
+      summary += `\n**README 摘要**: ${content.slice(0, 800)}...\n`
     } catch { /* ignore */ }
   }
 
