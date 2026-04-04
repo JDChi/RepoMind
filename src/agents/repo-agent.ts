@@ -127,12 +127,17 @@ export async function* streamRepoAgent(
     repoData = `获取数据失败: ${e.message}`
   }
 
-  // Phase 2: Code technical analysis (file structure, tests, linter, CI, etc.)
+  // Phase 2: Code technical analysis
   yield { type: 'progress', msg: `🔧 正在分析代码结构...` }
   let codeAnalysis = ''
   try {
-    const codeData = await fetchCodeFiles(owner, name, githubToken)
-    codeAnalysis = formatCodeAnalysis(codeData)
+    for await (const step of fetchCodeFiles(owner, name, githubToken)) {
+      if (step.type === 'progress') {
+        yield { type: 'progress', msg: `  ${step.msg}` }
+      } else if (step.type === 'result') {
+        codeAnalysis = formatCodeAnalysis(step.data)
+      }
+    }
   } catch (e: any) {
     codeAnalysis = `\n\n---\n\n## 🔧 代码技术分析\n\n获取失败: ${e.message}\n`
   }

@@ -25,9 +25,9 @@ function findDuplicates(repos: string[]): string[] {
 
 interface RepoPanel {
   repo: string
-  text: string           // full accumulated text
-  reasoning: string      // full accumulated reasoning
-  displayedText: string  // text revealed so far (typewriter)
+  text: string
+  reasoning: string
+  displayedText: string
   displayedReasoning: string
   logs: string[]
   done: boolean
@@ -41,69 +41,41 @@ export default function App() {
   const [error, setError] = useState<string | null>(null)
   const [repoPanels, setRepoPanels] = useState<RepoPanel[]>([])
   const panelBodyRefs = useRef<Record<string, HTMLDivElement | null>>({})
-  // RAF + time-based typewriter state per repo
-  const textRafRefs = useRef<Record<string, number | null>>({})
-  const reasoningRafRefs = useRef<Record<string, number | null>>({})
-  const textStartTimeRefs = useRef<Record<string, number>>({})
-  const reasoningStartTimeRefs = useRef<Record<string, number>>({})
-  // Full text (source of truth for RAF)
-  const textFullRefs = useRef<Record<string, string>>({})
-  const reasoningFullRefs = useRef<Record<string, string>>({})
+  const textElRefs = useRef<Record<string, HTMLElement | null>>({})
+  const reasoningElRefs = useRef<Record<string, HTMLElement | null>>({})
+  // Accumulated text (written directly to DOM, not React state during stream)
+  const textAccRefs = useRef<Record<string, string>>({})
+  const reasoningAccRefs = useRef<Record<string, string>>({})
+  const textIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({})
+  const reasoningIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({})
 
   const canSubmit = !isLoading && repos.every(r => r.trim().includes('/'))
 
-  // Time-based typewriter: reveal ~20 chars/sec smoothly
-  const revealText = (repo: string) => {
-    const full = textFullRefs.current[repo] || ''
-    const startTime = textStartTimeRefs.current[repo]
-    if (!startTime) return
-
-    const elapsed = Date.now() - startTime
-    const charsToShow = Math.floor((elapsed / 1000) * 20) // 20 chars/sec
-    const prevDisplayed = textFullRefs.current[repo] ? 0 : 0
-
-    // Only update if there are new chars to show
-    const currentPanel = panelBodyRefs.current[repo]
-    if (!currentPanel) return
-
-    // Directly manipulate DOM for performance + smoothness
-    const textEl = currentPanel.querySelector('.analysis-text')
-    if (textEl) {
-      textEl.textContent = full.slice(0, charsToShow)
-      const cursor = currentPanel.querySelector('.streaming-cursor')
-      if (cursor) {
-        if (charsToShow >= full.length) {
-          cursor.style.display = 'inline'
-        } else {
-          cursor.style.display = 'inline'
-        }
+  // Write accumulated text to DOM every 50ms
+  const startTextWriter = (repo: string) => {
+    if (textIntervalRefs.current[repo]) return
+    textIntervalRefs.current[repo] = setInterval(() => {
+      const acc = textAccRefs.current[repo] || ''
+      const el = textElRefs.current[repo]
+      if (el) {
+        el.innerHTML = acc.replace(/\n/g, '<br>') + '<span class="streaming-cursor"></span>'
+        const panel = panelBodyRefs.current[repo]
+        if (panel) panel.scrollTop = panel.scrollHeight
       }
-    }
-
-    if (charsToShow < full.length) {
-      textRafRefs.current[repo] = requestAnimationFrame(() => revealText(repo))
-    }
+    }, 50)
   }
 
-  const revealReasoning = (repo: string) => {
-    const full = reasoningFullRefs.current[repo] || ''
-    const startTime = reasoningStartTimeRefs.current[repo]
-    if (!startTime) return
-
-    const elapsed = Date.now() - startTime
-    const charsToShow = Math.floor((elapsed / 1000) * 20)
-
-    const currentPanel = panelBodyRefs.current[repo]
-    if (!currentPanel) return
-
-    const reasoningEl = currentPanel.querySelector('.reasoning-text')
-    if (reasoningEl) {
-      reasoningEl.textContent = full.slice(0, charsToShow)
-    }
-
-    if (charsToShow < full.length) {
-      reasoningRafRefs.current[repo] = requestAnimationFrame(() => revealReasoning(repo))
-    }
+  const startReasoningWriter = (repo: string) => {
+    if (reasoningIntervalRefs.current[repo]) return
+    reasoningIntervalRefs.current[repo] = setInterval(() => {
+      const acc = reasoningAccRefs.current[repo] || ''
+      const el = reasoningElRefs.current[repo]
+      if (el) {
+        el.innerHTML = acc.replace(/\n/g, '<br>')
+        const panel = panelBodyRefs.current[repo]
+        if (panel) panel.scrollTop = panel.scrollHeight
+      }
+    }, 50)
   }
 
   // Auto-scroll panel to bottom when content streams
@@ -172,55 +144,34 @@ export default function App() {
               ))
             } else if (parsed.type === 'repo_text' && typeof parsed.chunk === 'string') {
               const repo = parsed.repo
-              // Start timer on first chunk
-              if (!textStartTimeRefs.current[repo]) {
-                textStartTimeRefs.current[repo] = Date.now()
-              }
-              textFullRefs.current[repo] = (textFullRefs.current[repo] || '') + parsed.chunk
-              // Start or continue RAF reveal
-              if (!textRafRefs.current[repo]) {
-                textRafRefs.current[repo] = requestAnimationFrame(() => revealText(repo))
-              }
+              textAccRefs.current[repo] = (textAccRefs.current[repo] || '') + parsed.chunk
+              startTextWriter(repo)
             } else if (parsed.type === 'repo_reasoning' && typeof parsed.chunk === 'string') {
               const repo = parsed.repo
-              if (!reasoningStartTimeRefs.current[repo]) {
-                reasoningStartTimeRefs.current[repo] = Date.now()
-              }
-              reasoningFullRefs.current[repo] = (reasoningFullRefs.current[repo] || '') + parsed.chunk
-              if (!reasoningRafRefs.current[repo]) {
-                reasoningRafRefs.current[repo] = requestAnimationFrame(() => revealReasoning(repo))
-              }
+              reasoningAccRefs.current[repo] = (reasoningAccRefs.current[repo] || '') + parsed.chunk
+              startReasoningWriter(repo)
             } else if (parsed.type === 'repo_done') {
               const repo = parsed.repo
-              // Cancel RAFs and flush all remaining text to DOM
-              if (textRafRefs.current[repo]) {
-                cancelAnimationFrame(textRafRefs.current[repo]!)
-                textRafRefs.current[repo] = null
+              // Stop intervals
+              if (textIntervalRefs.current[repo]) {
+                clearInterval(textIntervalRefs.current[repo]!)
+                textIntervalRefs.current[repo] = null
               }
-              if (reasoningRafRefs.current[repo]) {
-                cancelAnimationFrame(reasoningRafRefs.current[repo]!)
-                reasoningRafRefs.current[repo] = null
+              if (reasoningIntervalRefs.current[repo]) {
+                clearInterval(reasoningIntervalRefs.current[repo]!)
+                reasoningIntervalRefs.current[repo] = null
               }
-              // Flush remaining to displayed state
+              // Final DOM update (no cursor)
+              const finalText = textAccRefs.current[repo] || ''
+              const finalReasoning = reasoningAccRefs.current[repo] || ''
+              const textEl = textElRefs.current[repo]
+              const reasoningEl = reasoningElRefs.current[repo]
+              if (textEl) textEl.innerHTML = finalText.replace(/\n/g, '<br>')
+              if (reasoningEl) reasoningEl.innerHTML = finalReasoning.replace(/\n/g, '<br>')
+              // Update React state
               setRepoPanels(prev => prev.map(p =>
                 p.repo === repo
-                  ? {
-                      ...p,
-                      done: true,
-                      displayedText: textFullRefs.current[repo] || '',
-                      displayedReasoning: reasoningFullRefs.current[repo] || '',
-                    }
-                  : p
-              ))
-              if (reasoningRafRefs.current[repo]) {
-                cancelAnimationFrame(reasoningRafRefs.current[repo]!)
-                reasoningRafRefs.current[repo] = null
-              }
-              const fullText = textFullRefs.current[repo] || ''
-              const fullReasoning = reasoningFullRefs.current[repo] || ''
-              setRepoPanels(prev => prev.map(p =>
-                p.repo === repo
-                  ? { ...p, done: true, displayedText: fullText, displayedReasoning: fullReasoning }
+                  ? { ...p, done: true, displayedText: finalText, displayedReasoning: finalReasoning }
                   : p
               ))
             } else if (parsed.type === 'progress') {
@@ -304,16 +255,17 @@ export default function App() {
                     ))}
                   </div>
                 )}
-                {panel.displayedReasoning && (
-                  <div className="reasoning-section">
-                    <div className="reasoning-label">思考过程</div>
-                    <div className="reasoning-text">{panel.displayedReasoning}</div>
-                  </div>
-                )}
-                <div className="analysis-text">
-                  {panel.displayedText}
-                  {!panel.done && <span className="streaming-cursor" />}
+                <div className="reasoning-section">
+                  <div className="reasoning-label">思考过程</div>
+                  <div
+                    className="reasoning-text"
+                    ref={el => { reasoningElRefs.current[panel.repo] = el }}
+                  />
                 </div>
+                <div
+                  className="analysis-text"
+                  ref={el => { textElRefs.current[panel.repo] = el }}
+                />
               </div>
             </div>
           ))}

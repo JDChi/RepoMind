@@ -225,29 +225,29 @@ function getFilePriority(path: string): number {
   return 5
 }
 
-export async function fetchCodeFiles(
+export async function* fetchCodeFiles(
   owner: string,
   repo: string,
   token?: string,
-  onProgress?: (msg: string) => void
-): Promise<CodeAnalysisResult> {
-  onProgress?.('📁 获取代码结构...')
+): AsyncGenerator<{ type: 'progress'; msg: string } | { type: 'result'; data: CodeAnalysisResult }> {
+  const concurrency = token ? 10 : 4
+  const delayMs = token ? 20 : 100
+
+  yield { type: 'progress', msg: '📁 [1/4] 获取文件结构...' }
   const tree = await fetchFileTree(owner, repo, token)
 
-  // Filter and score files
+  // Score and filter files
+  yield { type: 'progress', msg: `📊 [2/4] 筛选关键文件 (共 ${tree.length} 个)...` }
   const candidates = tree
-    .filter(f => f.size > 0 && f.size < 100000) // 0-100KB
+    .filter(f => f.size > 0 && f.size < 100000)
     .map(f => ({ entry: f, score: getFilePriority(f.path), size: f.size }))
     .sort((a, b) => b.score - a.score || b.size - a.size)
-    .slice(0, 35) // Limit to 35 files
+    .slice(0, 25) // Reduced from 35 for speed
 
-  onProgress?.(`📄 分析 ${candidates.length} 个关键文件...`)
+  yield { type: 'progress', msg: `📥 [3/4] 抓取 ${candidates.length} 个文件内容...` }
 
-  // Batch fetch
-  const concurrency = token ? 8 : 3
-  const delayMs = token ? 30 : 150
+  // Fetch in batches with progress per batch
   const results: Record<string, string> = {}
-
   for (let i = 0; i < candidates.length; i += concurrency) {
     const batch = candidates.slice(i, i + concurrency)
     const settled = await Promise.allSettled(
@@ -261,12 +261,16 @@ export async function fetchCodeFiles(
         results[s.value[0]] = s.value[1]
       }
     }
+    // Brief delay between batches to avoid rate limit
     if (i + concurrency < candidates.length) {
       await new Promise(r => setTimeout(r, delayMs))
     }
   }
 
-  return analyzeCodeFiles(results)
+  yield { type: 'progress', msg: '🧠 [4/4] 分析代码特征...' }
+  const analysis = analyzeCodeFiles(results)
+
+  yield { type: 'result', data: analysis }
 }
 
 function analyzeCodeFiles(files: Record<string, string>): CodeAnalysisResult {
