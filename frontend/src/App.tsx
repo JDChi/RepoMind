@@ -6,15 +6,40 @@ import { ExportButton } from './components/ExportButton'
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || ''
 
+function normalizeRepo(input: string): string {
+  const trimmed = input.trim()
+  const match = trimmed.match(/github\.com\/([^/]+)\/([^/?#]+)/)
+  if (match) return `${match[1]}/${match[2]}`
+  return trimmed
+}
+
+function findDuplicates(repos: string[]): string[] {
+  const normalized = repos.map(normalizeRepo).filter(r => r.includes('/'))
+  const seen = new Set<string>()
+  const duplicates: string[] = []
+  for (const repo of normalized) {
+    if (seen.has(repo)) duplicates.push(repo)
+    else seen.add(repo)
+  }
+  return duplicates
+}
+
 export default function App() {
   const [repos, setRepos] = useState(['', ''])
   const [logs, setLogs] = useState<string[]>([])
   const [report, setReport] = useState('')
   const [isLoading, setIsLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   const canSubmit = !isLoading && repos.every(r => r.trim().includes('/'))
 
   const handleCompare = async () => {
+    const dups = findDuplicates(repos)
+    if (dups.length > 0) {
+      setError(`检测到重复仓库: ${dups.join(', ')}`)
+      return
+    }
+    setError(null)
     setIsLoading(true)
     setLogs([])
     setReport('')
@@ -91,6 +116,12 @@ export default function App() {
       >
         {isLoading ? '分析中...' : '开始对比'}
       </button>
+
+      {error && (
+        <div style={{ marginBottom: '16px', padding: '12px', background: '#fee', border: '1px solid #f00', borderRadius: '6px', color: '#c00' }}>
+          {error}
+        </div>
+      )}
 
       {logs.length > 0 && (
         <div style={{ marginBottom: '24px' }}>
