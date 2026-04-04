@@ -1,4 +1,4 @@
-// Repo Agent - analyzes GitHub repositories using MiniMax AI v3
+// Repo Agent - analyzes GitHub repositories using MiniMax AI v4
 import { generateText } from 'ai'
 import { createMinimaxOpenAI } from 'vercel-minimax-ai-provider'
 import { githubTools } from '../tools/github'
