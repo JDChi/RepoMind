@@ -1,5 +1,5 @@
 import { generateText } from 'ai'
-import { createMinimaxOpenAI } from 'vercel-minimax-ai-provider'
+import { createOpenAI } from '@ai-sdk/openai'
 import { githubTools } from '../tools/github'
 
 function parseRepo(input: string): { owner: string; name: string } {
@@ -14,8 +14,8 @@ function parseRepo(input: string): { owner: string; name: string } {
 }
 
 export async function createRepoAgent(repo: string, apiKey: string, baseURL: string, modelName: string): Promise<string> {
-  const minimax = createMinimaxOpenAI({ apiKey, baseURL })
-  const model = minimax(modelName)
+  const openai = createOpenAI({ apiKey, baseURL })
+  const model = openai(modelName)
 
   const { owner, name } = parseRepo(repo)
 

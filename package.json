@@ -7,23 +7,24 @@
     "build": "vite build"
   },
   "dependencies": {
-    "hono": "^4",
+    "@ai-sdk/openai": "^3.0.50",
     "ai": "^6",
-    "vercel-minimax-ai-provider": "latest",
-    "zod": "^3",
+    "hono": "^4",
+    "marked": "^14",
     "react": "^19",
     "react-dom": "^19",
     "react-markdown": "^9",
     "remark-gfm": "^4",
-    "marked": "^14"
+    "vercel-minimax-ai-provider": "latest",
+    "zod": "^3"
   },
   "devDependencies": {
-    "wrangler": "^3",
-    "vite": "^6",
-    "@vitejs/plugin-react": "^4",
     "@cloudflare/workers-types": "latest",
-    "typescript": "^5",
     "@types/react": "^19",
-    "@types/react-dom": "^19"
+    "@types/react-dom": "^19",
+    "@vitejs/plugin-react": "^4",
+    "typescript": "^5",
+    "vite": "^6",
+    "wrangler": "^3"
   }
 }
