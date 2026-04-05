@@ -274,15 +274,21 @@ export default function App() {
 
   return (
     <div className="page">
-      <header className="header">
-        <div className="logo-row">
-          <div className="logo-icon">🔍</div>
-          <span className="logo-text">RepoMind</span>
+      <header className="masthead">
+        <span className="masthead-eyebrow">GitHub Analysis Tool</span>
+        <h1 className="masthead-title">RepoMind</h1>
+        <p className="masthead-subtitle">
+          并行分析多个 GitHub 仓库，生成深度对比报告。
+          支持 Stars、贡献者、代码结构、技术栈等维度。
+        </p>
+        <div className="masthead-rule">
+          <span className="rule-line"></span>
+          <span className="rule-ornament">◆</span>
+          <span className="rule-line"></span>
         </div>
-        <p className="header-subtitle">GitHub 仓库智能对比工具</p>
       </header>
 
-      <div className="input-section">
+      <div className="input-zone">
         <RepoInput repos={repos} onChange={setRepos} disabled={isLoading} />
       </div>
 
@@ -301,57 +307,59 @@ export default function App() {
 
       {error && (
         <div className="error-msg">
-          <span>⚠️</span> {error}
+          <span>!</span> {error}
         </div>
       )}
 
       {repoPanels.length > 0 && (
-        <div className={`analysis-grid ${repoPanels.length === 2 ? 'cols-2' : 'cols-3'}`}>
-          {repoPanels.map(panel => (
-            <div key={panel.repo} className="analysis-panel">
-              <div className="panel-header">
-                <a
-                  className="panel-repo"
-                  href={`https://github.com/${panel.repo}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={e => e.stopPropagation()}
-                  style={{ textDecoration: 'none', color: 'inherit' }}
-                >
-                  {panel.repo}
-                </a>
-                <span className={`panel-badge ${panel.done ? 'done' : 'loading'}`}>
-                  {!panel.done && <span className="dot" />}
-                  {panel.done ? '✅ 完成' : '⏳ 分析中'}
-                </span>
-              </div>
-              <div
-                className="panel-body"
-                ref={el => { panelBodyRefs.current[panel.repo] = el }}
-              >
-                {panel.logs.length > 0 && (
-                  <div className="logs-section">
-                    {panel.logs.map((log, i) => (
-                      <div key={i} className="log-item">{log}</div>
-                    ))}
-                  </div>
-                )}
-                {panel.showReasoning && (
-                  <div className="reasoning-section">
-                    <div className="reasoning-label">思考过程</div>
-                    <div
-                      className="reasoning-text"
-                      ref={el => { reasoningElRefs.current[panel.repo] = el }}
-                    />
-                  </div>
-                )}
+        <div>
+          <div className="section-label">Analysis</div>
+          <div className={`analysis-grid ${repoPanels.length === 2 ? 'cols-2' : 'cols-3'}`}>
+            {repoPanels.map(panel => (
+              <div key={panel.repo} className="analysis-panel">
+                <div className="panel-header">
+                  <a
+                    className="panel-repo"
+                    href={`https://github.com/${panel.repo}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={e => e.stopPropagation()}
+                  >
+                    {panel.repo}
+                  </a>
+                  <span className={`panel-badge ${panel.done ? 'done' : 'loading'}`}>
+                    {!panel.done && <span className="dot" />}
+                    {panel.done ? 'Done' : 'Analyzing'}
+                  </span>
+                </div>
                 <div
-                  className="analysis-text"
-                  ref={el => { textElRefs.current[panel.repo] = el }}
-                />
+                  className="panel-body"
+                  ref={el => { panelBodyRefs.current[panel.repo] = el }}
+                >
+                  {panel.logs.length > 0 && (
+                    <div className="logs-section">
+                      {panel.logs.map((log, i) => (
+                        <div key={i} className="log-item">{log}</div>
+                      ))}
+                    </div>
+                  )}
+                  {panel.showReasoning && (
+                    <div className="reasoning-section">
+                      <div className="reasoning-label">Reasoning</div>
+                      <div
+                        className="reasoning-text"
+                        ref={el => { reasoningElRefs.current[panel.repo] = el }}
+                      />
+                    </div>
+                  )}
+                  <div
+                    className="analysis-text"
+                    ref={el => { textElRefs.current[panel.repo] = el }}
+                  />
+                </div>
               </div>
-            </div>
-          ))}
+            ))}
+          </div>
         </div>
       )}
 
@@ -363,8 +371,9 @@ export default function App() {
         <div className="report-section">
           <div className="report-header">
             <h2 className="report-title">
-              📋 对比报告
-              {isLoading && <span className="summary-badge">生成中...</span>}
+              <span className="report-title-icon">¶</span>
+              Comparison Report
+              {isLoading && <span className="summary-badge">Generating</span>}
             </h2>
             <ExportButton report={report} disabled={isLoading} />
           </div>

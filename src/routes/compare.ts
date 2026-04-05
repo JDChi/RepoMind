@@ -9,6 +9,7 @@ type Env = {
   AI_MODEL_NAME: string
   GITHUB_TOKEN?: string
   ALLOWED_ORIGIN?: string
+  NODE_ENV?: string
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -38,12 +39,13 @@ app.post('/api/compare', async (c) => {
 
   ;(async () => {
     const startTime = Date.now()
+    const isLocal = c.env.NODE_ENV === 'local'
     try {
-      // Phase 1: parallel repo analysis (streaming each repo's output)
+      // Phase 1: repo analysis
       const analyses: Array<{ repo: string; analysis: string }> = []
       const repoStats: Array<{ repo: string; promptTokens: number; completionTokens: number; totalTokens: number }> = []
 
-      for (const repo of repos) {
+      const processRepo = async (repo: string) => {
         await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_progress', repo, msg: `🚀 开始分析 ${repo}...` })}\n\n`))
 
         let analysisText = ''
@@ -65,6 +67,13 @@ app.post('/api/compare', async (c) => {
         await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_done', repo })}\n\n`))
         analyses.push({ repo, analysis: analysisText })
         repoStats.push({ repo, ...repoTokens })
+      }
+
+      // Run in parallel locally (no subrequest limit), sequentially in production
+      if (isLocal) {
+        await Promise.all(repos.map(processRepo))
+      } else {
+        for (const repo of repos) await processRepo(repo)
       }
 
       // Phase 2: streaming summary
