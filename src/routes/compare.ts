@@ -45,7 +45,7 @@ app.post('/api/compare', async (c) => {
 
       await Promise.all(
         repos.map(async (repo) => {
-          await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'progress', msg: `🚀 开始分析 ${repo}...` })}\n\n`))
+          await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_progress', repo, msg: `🚀 开始分析 ${repo}...` })}\n\n`))
 
           let analysisText = ''
           let repoTokens = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }

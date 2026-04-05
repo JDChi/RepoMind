@@ -31,6 +31,7 @@ interface RepoPanel {
   displayedReasoning: string
   logs: string[]
   done: boolean
+  showReasoning: boolean
 }
 
 export default function App() {
@@ -39,6 +40,7 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [repoPanels, setRepoPanels] = useState<RepoPanel[]>([])
+  const [progressMsg, setProgressMsg] = useState('')
   const panelBodyRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const textElRefs = useRef<Record<string, HTMLElement | null>>({})
   const reasoningElRefs = useRef<Record<string, HTMLElement | null>>({})
@@ -176,6 +178,7 @@ export default function App() {
       displayedReasoning: '',
       logs: [],
       done: false,
+      showReasoning: false,
     })))
 
     try {
@@ -215,6 +218,10 @@ export default function App() {
             } else if (parsed.type === 'repo_reasoning' && typeof parsed.chunk === 'string') {
               const repo = parsed.repo
               reasoningAccRefs.current[repo] = (reasoningAccRefs.current[repo] || '') + parsed.chunk
+              // Show reasoning section on first chunk
+              setRepoPanels(prev => prev.map(p =>
+                p.repo === repo && !p.showReasoning ? { ...p, showReasoning: true } : p
+              ))
               startReasoningWriter(repo)
             } else if (parsed.type === 'repo_done') {
               const repo = parsed.repo
@@ -241,8 +248,9 @@ export default function App() {
                   : p
               ))
             } else if (parsed.type === 'progress') {
-              // progress message - ignored for logs
+              setProgressMsg(parsed.msg)
             } else if (parsed.type === 'text') {
+              setProgressMsg('')
               reportAccRef.current += parsed.chunk
               startReportWriter()
             } else if (parsed.type === 'error') {
@@ -328,13 +336,15 @@ export default function App() {
                     ))}
                   </div>
                 )}
-                <div className="reasoning-section">
-                  <div className="reasoning-label">思考过程</div>
-                  <div
-                    className="reasoning-text"
-                    ref={el => { reasoningElRefs.current[panel.repo] = el }}
-                  />
-                </div>
+                {panel.showReasoning && (
+                  <div className="reasoning-section">
+                    <div className="reasoning-label">思考过程</div>
+                    <div
+                      className="reasoning-text"
+                      ref={el => { reasoningElRefs.current[panel.repo] = el }}
+                    />
+                  </div>
+                )}
                 <div
                   className="analysis-text"
                   ref={el => { textElRefs.current[panel.repo] = el }}
@@ -345,6 +355,9 @@ export default function App() {
         </div>
       )}
 
+      {progressMsg && (
+        <div className="progress-msg">{progressMsg}</div>
+      )}
 
       {report && (
         <div className="report-section">
