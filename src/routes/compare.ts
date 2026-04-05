@@ -43,31 +43,29 @@ app.post('/api/compare', async (c) => {
       const analyses: Array<{ repo: string; analysis: string }> = []
       const repoStats: Array<{ repo: string; promptTokens: number; completionTokens: number; totalTokens: number }> = []
 
-      await Promise.all(
-        repos.map(async (repo) => {
-          await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_progress', repo, msg: `🚀 开始分析 ${repo}...` })}\n\n`))
+      for (const repo of repos) {
+        await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_progress', repo, msg: `🚀 开始分析 ${repo}...` })}\n\n`))
 
-          let analysisText = ''
-          let repoTokens = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
-          for await (const event of streamRepoAgent(repo, apiKey, baseURL, modelName, c.env.GITHUB_TOKEN, signal)) {
-            if (event.type === 'progress') {
-              await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_progress', repo, msg: event.msg })}\n\n`))
-            } else if (event.type === 'text') {
-              analysisText += event.chunk
-              await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_text', repo, chunk: event.chunk })}\n\n`))
-            } else if (event.type === 'reasoning') {
-              analysisText += event.chunk
-              await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_reasoning', repo, chunk: event.chunk })}\n\n`))
-            } else if (event.type === 'usage') {
-              repoTokens = { promptTokens: event.promptTokens, completionTokens: event.completionTokens, totalTokens: event.totalTokens }
-            }
+        let analysisText = ''
+        let repoTokens = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+        for await (const event of streamRepoAgent(repo, apiKey, baseURL, modelName, c.env.GITHUB_TOKEN, signal)) {
+          if (event.type === 'progress') {
+            await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_progress', repo, msg: event.msg })}\n\n`))
+          } else if (event.type === 'text') {
+            analysisText += event.chunk
+            await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_text', repo, chunk: event.chunk })}\n\n`))
+          } else if (event.type === 'reasoning') {
+            analysisText += event.chunk
+            await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_reasoning', repo, chunk: event.chunk })}\n\n`))
+          } else if (event.type === 'usage') {
+            repoTokens = { promptTokens: event.promptTokens, completionTokens: event.completionTokens, totalTokens: event.totalTokens }
           }
+        }
 
-          await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_done', repo })}\n\n`))
-          analyses.push({ repo, analysis: analysisText })
-          repoStats.push({ repo, ...repoTokens })
-        })
-      )
+        await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_done', repo })}\n\n`))
+        analyses.push({ repo, analysis: analysisText })
+        repoStats.push({ repo, ...repoTokens })
+      }
 
       // Phase 2: streaming summary
       await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'progress', msg: '正在生成对比报告...' })}\n\n`))
