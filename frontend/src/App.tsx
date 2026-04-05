@@ -289,7 +289,7 @@ export default function App() {
       </header>
 
       <div className="input-zone">
-        <RepoInput repos={repos} onChange={setRepos} disabled={isLoading} />
+        <RepoInput repos={repos} onChange={setRepos} disabled={isLoading} apiBaseUrl={API_BASE_URL} />
       </div>
 
       <button

@@ -133,6 +133,8 @@ body {
   max-width: 720px;
   margin: 0 auto 32px;
   animation: fadeUp 0.7s var(--ease-out) 0.1s both;
+  position: relative;
+  z-index: 100;
 }
 
 .repo-inputs {
@@ -201,7 +203,9 @@ body {
   position: absolute;
   top: calc(100% + 6px);
   left: 0; right: 0;
-  background: var(--surface);
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(12px) saturate(180%);
+  -webkit-backdrop-filter: blur(12px) saturate(180%);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow-lg);
@@ -218,11 +222,11 @@ body {
 .suggestion-item {
   padding: 11px 16px;
   cursor: pointer;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(231, 229, 224, 0.6);
   transition: background var(--duration-fast);
 }
 .suggestion-item:last-child { border-bottom: none; }
-.suggestion-item:hover, .suggestion-item.active { background: var(--surface-2); }
+.suggestion-item:hover, .suggestion-item.active { background: rgba(245, 243, 238, 0.9); backdrop-filter: none; }
 
 .sg-name {
   font-family: var(--font-mono);

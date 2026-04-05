@@ -4,6 +4,7 @@ interface Props {
   repos: string[]
   onChange: (repos: string[]) => void
   disabled: boolean
+  apiBaseUrl: string
 }
 
 interface Suggestion {
@@ -12,7 +13,7 @@ interface Suggestion {
   description: string
 }
 
-export function RepoInput({ repos, onChange, disabled }: Props) {
+export function RepoInput({ repos, onChange, disabled, apiBaseUrl }: Props) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([])
   const [activeIndex, setActiveIndex] = useState(-1)
   const [focusedInput, setFocusedInput] = useState<number | null>(null)
@@ -44,16 +45,12 @@ export function RepoInput({ repos, onChange, disabled }: Props) {
       abortControllerRef.current = new AbortController()
       try {
         const res = await fetch(
-          `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=5`,
-          { headers: { 'User-Agent': 'RepoMind' }, signal: abortControllerRef.current.signal }
+          `${apiBaseUrl}/api/search?q=${encodeURIComponent(query)}`,
+          { signal: abortControllerRef.current.signal }
         )
         if (!res.ok) return
         const data = await res.json()
-        setSuggestions(data.items?.map((item: any) => ({
-          owner: item.owner.login,
-          repo: item.name,
-          description: item.description || '',
-        })) || [])
+        setSuggestions(data.items || [])
         setActiveIndex(-1)
       } catch { setSuggestions([]) }
     }, 300)

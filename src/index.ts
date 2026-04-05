@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import compareRouter from './routes/compare'
+import searchRouter from './routes/search'
 
 type Env = {
   OPENAI_API_KEY: string
@@ -22,6 +23,7 @@ app.use('*', cors({
 }))
 
 app.route('/', compareRouter)
+app.route('/', searchRouter)
 
 app.get('/', (c) => {
   return c.json({ status: 'ok', message: 'RepoMind Worker is running', version: 3 })
