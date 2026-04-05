@@ -113,7 +113,9 @@ export async function* streamRepoAgent(
   githubToken?: string
 ): AsyncGenerator<RepoEvent> {
   const minimax = createMinimaxOpenAI({ apiKey, baseURL })
-  const model = minimax(modelName)
+  const model = minimax(modelName) as any
+  // Enable usage stats from MiniMax streaming API
+  if (model.config) model.config.includeUsage = true
 
   const { owner, name } = parseRepo(repo)
   const prompt = `请分析 GitHub 仓库：${owner}/${name}`
@@ -165,15 +167,6 @@ ${repoData}`,
   })
 
   let usageInfo: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null
-  result.onFinish = (params) => {
-    if (params.usage) {
-      usageInfo = {
-        promptTokens: params.usage.promptTokens,
-        completionTokens: params.usage.completionTokens,
-        totalTokens: params.usage.totalTokens,
-      }
-    }
-  }
 
   try {
     for await (const chunk of result.fullStream) {
@@ -188,6 +181,27 @@ ${repoData}`,
     }
   } catch (e: any) {
     yield { type: 'progress', msg: `❌ AI 分析出错: ${e.message}` }
+  }
+
+  // Get usage from result after stream is consumed (result.usage is PromiseLike)
+  try {
+    const usageResult = await result.usage
+    const totalUsageResult = await result.totalUsage
+    if (usageResult) {
+      usageInfo = {
+        promptTokens: usageResult.promptTokens || 0,
+        completionTokens: usageResult.completionTokens || 0,
+        totalTokens: usageResult.totalTokens || 0,
+      }
+    } else if (totalUsageResult) {
+      usageInfo = {
+        promptTokens: totalUsageResult.promptTokens || 0,
+        completionTokens: totalUsageResult.completionTokens || 0,
+        totalTokens: totalUsageResult.totalTokens || 0,
+      }
+    }
+  } catch {
+    // Ignore usage errors
   }
 
   if (usageInfo) {

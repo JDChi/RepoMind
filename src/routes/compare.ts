@@ -89,9 +89,7 @@ app.post('/api/compare', async (c) => {
       // Emit stats as text chunk appended to report
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
       const totalTokens = repoStats.reduce((s, r) => s + r.totalTokens, 0)
-      const totalPrompt = repoStats.reduce((s, r) => s + r.promptTokens, 0)
-      const totalCompletion = repoStats.reduce((s, r) => s + r.completionTokens, 0)
-      const statsText = `\n\n---\n\n**📊 统计信息** | 耗时: ${elapsed}s | 💰 共消耗 ${totalTokens} tokens (prompt: ${totalPrompt}, completion: ${totalCompletion})\n`
+      const statsText = `\n\n---\n\n**📊 统计信息** | 耗时: ${elapsed}s | 💰 共消耗 ${totalTokens} tokens\n`
       await sseEvent(writer, { type: 'text', chunk: statsText })
       await sseEvent(writer, { type: 'done' })
     } catch (err) {
