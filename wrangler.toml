@@ -3,6 +3,9 @@ main = "src/index.ts"
 compatibility_date = "2025-01-01"
 compatibility_flags = ["nodejs_compat"]
 
+[limits]
+max_subrequests = 1000
+
 [vars]
 OPENAI_BASE_URL = "https://api.minimaxi.com/v1"
 AI_MODEL_NAME = "MiniMax-M2.7-highspeed"
