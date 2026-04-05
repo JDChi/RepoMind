@@ -46,36 +46,70 @@ export default function App() {
   // Accumulated text (written directly to DOM, not React state during stream)
   const textAccRefs = useRef<Record<string, string>>({})
   const reasoningAccRefs = useRef<Record<string, string>>({})
+  // Typewriter: track how many chars have been displayed so far
+  const textDisplayedRefs = useRef<Record<string, number>>({})
+  const reasoningDisplayedRefs = useRef<Record<string, number>>({})
   const textIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({})
   const reasoningIntervalRefs = useRef<Record<string, ReturnType<typeof setInterval> | null>>({})
+  // Report typewriter
+  const reportAccRef = useRef('')
+  const reportDisplayedRef = useRef(0)
+  const reportIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const canSubmit = !isLoading && repos.every(r => r.trim().includes('/'))
 
-  // Write accumulated text to DOM every 50ms
+  // Typewriter: advance display pointer by N chars per tick (30ms)
+  // Normally 3 chars/tick = ~100 chars/sec; if lag > 150 chars, speed up to catch up
   const startTextWriter = (repo: string) => {
     if (textIntervalRefs.current[repo]) return
     textIntervalRefs.current[repo] = setInterval(() => {
       const acc = textAccRefs.current[repo] || ''
+      const displayed = textDisplayedRefs.current[repo] ?? 0
+      if (displayed >= acc.length) return
+      const lag = acc.length - displayed
+      const step = lag > 150 ? 15 : 3
+      const next = Math.min(displayed + step, acc.length)
+      textDisplayedRefs.current[repo] = next
       const el = textElRefs.current[repo]
       if (el) {
-        el.innerHTML = acc.replace(/\n/g, '<br>') + '<span class="streaming-cursor"></span>'
+        el.innerHTML = acc.slice(0, next).replace(/\n/g, '<br>') + '<span class="streaming-cursor"></span>'
         const panel = panelBodyRefs.current[repo]
         if (panel) panel.scrollTop = panel.scrollHeight
       }
-    }, 50)
+    }, 30)
   }
 
   const startReasoningWriter = (repo: string) => {
     if (reasoningIntervalRefs.current[repo]) return
     reasoningIntervalRefs.current[repo] = setInterval(() => {
       const acc = reasoningAccRefs.current[repo] || ''
+      const displayed = reasoningDisplayedRefs.current[repo] ?? 0
+      if (displayed >= acc.length) return
+      const lag = acc.length - displayed
+      const step = lag > 150 ? 15 : 3
+      const next = Math.min(displayed + step, acc.length)
+      reasoningDisplayedRefs.current[repo] = next
       const el = reasoningElRefs.current[repo]
       if (el) {
-        el.innerHTML = acc.replace(/\n/g, '<br>')
+        el.innerHTML = acc.slice(0, next).replace(/\n/g, '<br>')
         const panel = panelBodyRefs.current[repo]
         if (panel) panel.scrollTop = panel.scrollHeight
       }
-    }, 50)
+    }, 30)
+  }
+
+  const startReportWriter = () => {
+    if (reportIntervalRef.current) return
+    reportIntervalRef.current = setInterval(() => {
+      const acc = reportAccRef.current
+      const displayed = reportDisplayedRef.current
+      if (displayed >= acc.length) return
+      const lag = acc.length - displayed
+      const step = lag > 150 ? 15 : 3
+      const next = Math.min(displayed + step, acc.length)
+      reportDisplayedRef.current = next
+      setReport(acc.slice(0, next))
+    }, 30)
   }
 
   // Auto-scroll panel to bottom when content streams
@@ -102,6 +136,18 @@ export default function App() {
     setIsLoading(true)
     setLogs([])
     setReport('')
+    // Reset typewriter state
+    textAccRefs.current = {}
+    reasoningAccRefs.current = {}
+    textDisplayedRefs.current = {}
+    reasoningDisplayedRefs.current = {}
+    // Reset report typewriter
+    reportAccRef.current = ''
+    reportDisplayedRef.current = 0
+    if (reportIntervalRef.current) {
+      clearInterval(reportIntervalRef.current)
+      reportIntervalRef.current = null
+    }
     setRepoPanels(repos.map(repo => ({
       repo: repo.trim(),
       text: '',
@@ -177,7 +223,8 @@ export default function App() {
             } else if (parsed.type === 'progress') {
               setLogs(prev => [...prev, parsed.msg])
             } else if (parsed.type === 'text') {
-              setReport(prev => prev + parsed.chunk)
+              reportAccRef.current += parsed.chunk
+              startReportWriter()
             } else if (parsed.type === 'error') {
               setLogs(prev => [...prev, `❌ 错误: ${parsed.msg}`])
             }
@@ -187,6 +234,12 @@ export default function App() {
     } catch (err) {
       setLogs(prev => [...prev, `❌ 请求失败: ${String(err)}`])
     } finally {
+      // Flush remaining report text immediately
+      if (reportIntervalRef.current) {
+        clearInterval(reportIntervalRef.current)
+        reportIntervalRef.current = null
+      }
+      setReport(reportAccRef.current)
       setIsLoading(false)
     }
   }
