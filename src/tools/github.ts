@@ -243,7 +243,7 @@ export async function* fetchCodeFiles(
     .filter(f => f.size > 0 && f.size < 100000)
     .map(f => ({ entry: f, score: getFilePriority(f.path), size: f.size }))
     .sort((a, b) => b.score - a.score || b.size - a.size)
-    .slice(0, 25) // Reduced from 35 for speed
+    .slice(0, 10) // 10 files per repo × 2 repos = ~22 subrequests (under 50 limit)
 
   yield { type: 'progress', msg: `📥 [3/4] 抓取 ${candidates.length} 个文件内容...` }
 
