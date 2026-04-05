@@ -6,6 +6,6 @@ compatibility_flags = ["nodejs_compat"]
 [vars]
 OPENAI_BASE_URL = "https://api.minimaxi.com/v1"
 AI_MODEL_NAME = "MiniMax-M2.7-highspeed"
-ALLOWED_ORIGIN = "http://localhost:5173"
+ALLOWED_ORIGIN = "https://repomind.pages.dev,https://repomind.jdchi.tech"
 
 # For secrets, use: wrangler secret put MINIMAX_API_KEY
