@@ -18,6 +18,20 @@ async function sseEvent(writer: WritableStreamDefaultWriter<Uint8Array>, data: u
 }
 
 app.post('/api/compare', async (c) => {
+  const origin = c.req.header('Origin') || ''
+  const allowedOrigins = (c.env.ALLOWED_ORIGIN || 'http://localhost:5173').split(',').map(o => o.trim())
+  const isOriginAllowed = allowedOrigins.includes(origin)
+
+  // Handle CORS preflight
+  if (isOriginAllowed) {
+    c.header('Access-Control-Allow-Origin', origin)
+    c.header('Access-Control-Allow-Credentials', 'true')
+    c.header('Access-Control-Allow-Headers', 'Content-Type')
+    if (c.req.method === 'OPTIONS') {
+      return c.body(null, 204)
+    }
+  }
+
   const { repos } = await c.req.json<{ repos: string[] }>()
 
   if (!repos || repos.length < 2 || repos.length > 3) {
@@ -100,6 +114,11 @@ app.post('/api/compare', async (c) => {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
+      ...(isOriginAllowed ? {
+        'Access-Control-Allow-Origin': origin,
+        'Access-Control-Allow-Credentials': 'true',
+        'Access-Control-Allow-Headers': 'Content-Type',
+      } : {}),
     },
   })
 })
