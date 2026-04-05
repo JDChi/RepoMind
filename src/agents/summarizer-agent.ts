@@ -16,6 +16,8 @@ export async function* streamSummary(
 ): AsyncGenerator<string> {
   const minimax = createMinimaxOpenAI({ apiKey, baseURL })
   const model = minimax(modelName)
+  // Enable usage stats — needed for result.usage to be populated
+  ;(model as unknown as { config: { includeUsage?: boolean } }).config.includeUsage = true
 
   const repoNames = analyses.map(a => a.repo).join(' vs ')
   const analysesText = analyses

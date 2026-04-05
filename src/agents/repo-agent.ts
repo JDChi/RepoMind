@@ -106,6 +106,8 @@ export async function* streamRepoAgent(
   const minimax = createMinimaxOpenAI({ apiKey, baseURL })
   // Note: includeUsage enabled via provider options if available
   const model = minimax(modelName)
+  // Enable usage stats — needed for result.usage to be populated
+  ;(model as unknown as { config: { includeUsage?: boolean } }).config.includeUsage = true
 
   const { owner, name } = validateAndParseRepo(repo)
   const prompt = `请分析 GitHub 仓库：${owner}/${name}`
