@@ -8,30 +8,12 @@ type Env = {
   OPENAI_BASE_URL: string
   AI_MODEL_NAME: string
   GITHUB_TOKEN?: string
+  ALLOWED_ORIGIN?: string
 }
 
 const app = new Hono<{ Bindings: Env }>()
 
-async function sseEvent(writer: WritableStreamDefaultWriter<Uint8Array>, data: unknown) {
-  const encoder = new TextEncoder()
-  await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`))
-}
-
 app.post('/api/compare', async (c) => {
-  const origin = c.req.header('Origin') || ''
-  const allowedOrigins = (c.env.ALLOWED_ORIGIN || 'http://localhost:5173').split(',').map(o => o.trim())
-  const isOriginAllowed = allowedOrigins.includes(origin)
-
-  // Handle CORS preflight
-  if (isOriginAllowed) {
-    c.header('Access-Control-Allow-Origin', origin)
-    c.header('Access-Control-Allow-Credentials', 'true')
-    c.header('Access-Control-Allow-Headers', 'Content-Type')
-    if (c.req.method === 'OPTIONS') {
-      return c.body(null, 204)
-    }
-  }
-
   const { repos } = await c.req.json<{ repos: string[] }>()
 
   if (!repos || repos.length < 2 || repos.length > 3) {
@@ -63,47 +45,46 @@ app.post('/api/compare', async (c) => {
 
       await Promise.all(
         repos.map(async (repo) => {
-          await sseEvent(writer, { type: 'progress', msg: `🚀 开始分析 ${repo}...` })
+          await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'progress', msg: `🚀 开始分析 ${repo}...` })}\n\n`))
 
           let analysisText = ''
           let repoTokens = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
           for await (const event of streamRepoAgent(repo, apiKey, baseURL, modelName, c.env.GITHUB_TOKEN, signal)) {
             if (event.type === 'progress') {
-              await sseEvent(writer, { type: 'repo_progress', repo, msg: event.msg })
+              await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_progress', repo, msg: event.msg })}\n\n`))
             } else if (event.type === 'text') {
               analysisText += event.chunk
-              await sseEvent(writer, { type: 'repo_text', repo, chunk: event.chunk })
+              await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_text', repo, chunk: event.chunk })}\n\n`))
             } else if (event.type === 'reasoning') {
               analysisText += event.chunk
-              await sseEvent(writer, { type: 'repo_reasoning', repo, chunk: event.chunk })
+              await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_reasoning', repo, chunk: event.chunk })}\n\n`))
             } else if (event.type === 'usage') {
               repoTokens = { promptTokens: event.promptTokens, completionTokens: event.completionTokens, totalTokens: event.totalTokens }
             }
           }
 
-          await sseEvent(writer, { type: 'repo_done', repo })
+          await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'repo_done', repo })}\n\n`))
           analyses.push({ repo, analysis: analysisText })
           repoStats.push({ repo, ...repoTokens })
         })
       )
 
       // Phase 2: streaming summary
-      await sseEvent(writer, { type: 'progress', msg: '正在生成对比报告...' })
+      await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'progress', msg: '正在生成对比报告...' })}\n\n`))
       const summaryUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
       for await (const chunk of streamSummary(analyses, apiKey, baseURL, modelName, summaryUsage, signal)) {
-        await sseEvent(writer, { type: 'text', chunk })
+        await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'text', chunk })}\n\n`))
       }
 
       // Emit stats as text chunk appended to report
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
       const totalTokens = repoStats.reduce((s, r) => s + r.totalTokens, 0) + summaryUsage.totalTokens
       const statsText = `\n\n---\n\n**📊 统计信息** | 耗时: ${elapsed}s | 💰 共消耗 ${totalTokens} tokens\n`
-      await sseEvent(writer, { type: 'text', chunk: statsText })
-      await sseEvent(writer, { type: 'done' })
+      await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'text', chunk: statsText })}\n\n`))
+      await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`))
     } catch (err) {
-      // Don't expose internal errors to client
       const message = err instanceof Error ? err.message : 'Internal error'
-      await sseEvent(writer, { type: 'error', msg: message })
+      await writer.write(new TextEncoder().encode(`data: ${JSON.stringify({ type: 'error', msg: message })}\n\n`))
     } finally {
       writer.close()
     }
@@ -114,11 +95,6 @@ app.post('/api/compare', async (c) => {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      ...(isOriginAllowed ? {
-        'Access-Control-Allow-Origin': origin,
-        'Access-Control-Allow-Credentials': 'true',
-        'Access-Control-Allow-Headers': 'Content-Type',
-      } : {}),
     },
   })
 })
