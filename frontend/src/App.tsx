@@ -35,7 +35,6 @@ interface RepoPanel {
 
 export default function App() {
   const [repos, setRepos] = useState(['vercel/ai', 'crewAIInc/crewAI'])
-  const [logs, setLogs] = useState<string[]>([])
   const [report, setReport] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -43,6 +42,7 @@ export default function App() {
   const panelBodyRefs = useRef<Record<string, HTMLDivElement | null>>({})
   const textElRefs = useRef<Record<string, HTMLElement | null>>({})
   const reasoningElRefs = useRef<Record<string, HTMLElement | null>>({})
+  const repoKeysRef = useRef(repos.map((_, i) => `k${i}`))
   // Accumulated text (written directly to DOM, not React state during stream)
   const textAccRefs = useRef<Record<string, string>>({})
   const reasoningAccRefs = useRef<Record<string, string>>({})
@@ -72,7 +72,7 @@ export default function App() {
       textDisplayedRefs.current[repo] = next
       const el = textElRefs.current[repo]
       if (el) {
-        el.innerHTML = acc.slice(0, next).replace(/\n/g, '<br>') + '<span class="streaming-cursor"></span>'
+        el.innerHTML = escapeHtml(acc.slice(0, next)).replace(/\n/g, '<br>') + '<span class="streaming-cursor"></span>'
         const panel = panelBodyRefs.current[repo]
         if (panel) panel.scrollTop = panel.scrollHeight
       }
@@ -91,7 +91,7 @@ export default function App() {
       reasoningDisplayedRefs.current[repo] = next
       const el = reasoningElRefs.current[repo]
       if (el) {
-        el.innerHTML = acc.slice(0, next).replace(/\n/g, '<br>')
+        el.innerHTML = escapeHtml(acc.slice(0, next)).replace(/\n/g, '<br>')
         const panel = panelBodyRefs.current[repo]
         if (panel) panel.scrollTop = panel.scrollHeight
       }
@@ -126,6 +126,27 @@ export default function App() {
     window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' })
   }, [report])
 
+  // Cleanup intervals on unmount
+  useEffect(() => {
+    return () => {
+      Object.values(textIntervalRefs.current).forEach(id => id && clearInterval(id))
+      Object.values(reasoningIntervalRefs.current).forEach(id => id && clearInterval(id))
+      if (reportIntervalRef.current) clearInterval(reportIntervalRef.current)
+    }
+  }, [])
+
+  // Stable repo keys when repos change
+  useEffect(() => {
+    repoKeysRef.current = repos.map((_, i) => `k${i}`)
+  }, [repos])
+
+  function escapeHtml(s: string): string {
+    return s
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+  }
+
   const handleCompare = async () => {
     const dups = findDuplicates(repos)
     if (dups.length > 0) {
@@ -134,7 +155,6 @@ export default function App() {
     }
     setError(null)
     setIsLoading(true)
-    setLogs([])
     setReport('')
     // Reset typewriter state
     textAccRefs.current = {}
@@ -212,8 +232,8 @@ export default function App() {
               const finalReasoning = reasoningAccRefs.current[repo] || ''
               const textEl = textElRefs.current[repo]
               const reasoningEl = reasoningElRefs.current[repo]
-              if (textEl) textEl.innerHTML = finalText.replace(/\n/g, '<br>')
-              if (reasoningEl) reasoningEl.innerHTML = finalReasoning.replace(/\n/g, '<br>')
+              if (textEl) textEl.innerHTML = escapeHtml(finalText).replace(/\n/g, '<br>')
+              if (reasoningEl) reasoningEl.innerHTML = escapeHtml(finalReasoning).replace(/\n/g, '<br>')
               // Update React state
               setRepoPanels(prev => prev.map(p =>
                 p.repo === repo
@@ -221,18 +241,18 @@ export default function App() {
                   : p
               ))
             } else if (parsed.type === 'progress') {
-              setLogs(prev => [...prev, parsed.msg])
+              // progress message - ignored for logs
             } else if (parsed.type === 'text') {
               reportAccRef.current += parsed.chunk
               startReportWriter()
             } else if (parsed.type === 'error') {
-              setLogs(prev => [...prev, `❌ 错误: ${parsed.msg}`])
+              // error message - ignored
             }
           } catch { /* ignore */ }
         }
       }
     } catch (err) {
-      setLogs(prev => [...prev, `❌ 请求失败: ${String(err)}`])
+      // request failed - error is already set via error event
     } finally {
       // Flush remaining report text immediately
       if (reportIntervalRef.current) {

@@ -9,7 +9,9 @@
   },
   "dependencies": {
     "@ai-sdk/openai": "^3.0.50",
+    "@types/dompurify": "^3.0.5",
     "ai": "^6",
+    "dompurify": "^3.3.3",
     "hono": "^4",
     "marked": "^14",
     "react": "^19",

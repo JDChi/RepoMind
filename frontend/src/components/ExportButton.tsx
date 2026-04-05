@@ -1,4 +1,5 @@
 import { marked } from 'marked'
+import DOMPurify from 'dompurify'
 
 interface Props {
   report: string
@@ -20,6 +21,7 @@ export function ExportButton({ report, disabled }: Props) {
 
   const exportHtml = async () => {
     const body = await marked(report)
+    const safeBody = DOMPurify.sanitize(body)
     const html = `<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -34,7 +36,7 @@ export function ExportButton({ report, disabled }: Props) {
   pre { background: #f0f0f0; padding: 16px; border-radius: 4px; overflow-x: auto; }
 </style>
 </head>
-<body>${body}</body>
+<body>${safeBody}</body>
 </html>`
     download('repomind-report.html', html, 'text/html')
   }

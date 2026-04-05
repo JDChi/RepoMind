@@ -19,6 +19,7 @@ export function RepoInput({ repos, onChange, disabled }: Props) {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const blurTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const abortControllerRef = useRef<AbortController | null>(null)
 
   const update = (i: number, val: string) => {
     const next = [...repos]
@@ -37,10 +38,14 @@ export function RepoInput({ repos, onChange, disabled }: Props) {
       return
     }
     debounceRef.current = setTimeout(async () => {
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort()
+      }
+      abortControllerRef.current = new AbortController()
       try {
         const res = await fetch(
           `https://api.github.com/search/repositories?q=${encodeURIComponent(query)}&per_page=5`,
-          { headers: { 'User-Agent': 'RepoMind' } }
+          { headers: { 'User-Agent': 'RepoMind' }, signal: abortControllerRef.current.signal }
         )
         if (!res.ok) return
         const data = await res.json()
