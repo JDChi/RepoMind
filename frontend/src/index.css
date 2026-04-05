@@ -203,20 +203,27 @@ body {
   position: absolute;
   top: calc(100% + 6px);
   left: 0; right: 0;
-  background: rgba(255, 255, 255, 0.90);
-  backdrop-filter: blur(16px) saturate(160%);
-  -webkit-backdrop-filter: blur(16px) saturate(160%);
-  border: 1px solid rgba(180, 83, 9, 0.25);
+  background: var(--surface);
+  border: 1px solid rgba(180, 83, 9, 0.30);
   border-radius: var(--radius);
   box-shadow:
     0 0 0 1px rgba(180, 83, 9, 0.10),
-    inset 0 0 40px rgba(180, 83, 9, 0.06),
-    0 0 20px rgba(180, 83, 9, 0.15),
-    0 4px 16px rgba(180, 83, 9, 0.12),
-    0 16px 48px rgba(180, 83, 9, 0.10);
+    inset 0 0 40px rgba(180, 83, 9, 0.08),
+    inset 0 0 80px rgba(180, 83, 9, 0.04),
+    0 0 20px rgba(180, 83, 9, 0.18),
+    0 4px 16px rgba(180, 83, 9, 0.14),
+    0 16px 48px rgba(180, 83, 9, 0.12);
   z-index: 200;
   overflow: hidden;
   animation: dropIn 0.18s var(--ease-out) both;
+}
+
+@supports (-webkit-backdrop-filter: none) {
+  .suggestions {
+    background: rgba(255, 255, 255, 0.78);
+    -webkit-backdrop-filter: blur(14px) saturate(150%);
+    backdrop-filter: blur(14px) saturate(150%);
+  }
 }
 
 @keyframes dropIn {
