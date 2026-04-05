@@ -17,6 +17,9 @@ describe('parseRepo', () => {
   it('throws on empty string', () => {
     expect(() => parseRepo('')).toThrow()
   })
+  it('parses GitHub URL with trailing slash', () => {
+    expect(parseRepo('https://github.com/vercel/ai/')).toEqual({ owner: 'vercel', name: 'ai' })
+  })
 })
 
 describe('validateAndParseRepo', () => {
@@ -28,5 +31,11 @@ describe('validateAndParseRepo', () => {
   })
   it('rejects semicolons in repo name', () => {
     expect(() => validateAndParseRepo('owner/repo;rm -rf')).toThrow()
+  })
+  it('works with GitHub URL input', () => {
+    expect(validateAndParseRepo('https://github.com/vercel/ai')).toEqual({ owner: 'vercel', name: 'ai' })
+  })
+  it('rejects owner starting with dot', () => {
+    expect(() => validateAndParseRepo('.hidden/repo')).toThrow()
   })
 })

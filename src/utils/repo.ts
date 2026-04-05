@@ -1,4 +1,4 @@
-const GITHUB_SLUG_REGEX = /^[a-zA-Z0-9._-]+$/
+export const GITHUB_SLUG_REGEX = /^[a-zA-Z0-9][a-zA-Z0-9._-]*$/
 
 export function parseRepo(input: string): { owner: string; name: string } {
   const trimmed = input.trim()
