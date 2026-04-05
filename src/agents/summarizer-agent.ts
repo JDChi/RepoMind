@@ -10,7 +10,8 @@ export async function* streamSummary(
   analyses: RepoAnalysis[],
   apiKey: string,
   baseURL: string,
-  modelName: string
+  modelName: string,
+  usageOut?: { promptTokens: number; completionTokens: number; totalTokens: number }
 ): AsyncGenerator<string> {
   const minimax = createMinimaxOpenAI({ apiKey, baseURL })
   const model = minimax(modelName)
@@ -87,5 +88,17 @@ ${analysesText}
 
   for await (const chunk of result.textStream) {
     yield chunk
+  }
+
+  // Collect usage after stream is consumed
+  if (usageOut) {
+    try {
+      const usage = await result.usage
+      if (usage) {
+        usageOut.promptTokens = usage.promptTokens || 0
+        usageOut.completionTokens = usage.completionTokens || 0
+        usageOut.totalTokens = usage.totalTokens || 0
+      }
+    } catch { /* ignore */ }
   }
 }

@@ -82,13 +82,14 @@ app.post('/api/compare', async (c) => {
 
       // Phase 2: streaming summary
       await sseEvent(writer, { type: 'progress', msg: '正在生成对比报告...' })
-      for await (const chunk of streamSummary(analyses, apiKey, baseURL, modelName)) {
+      const summaryUsage = { promptTokens: 0, completionTokens: 0, totalTokens: 0 }
+      for await (const chunk of streamSummary(analyses, apiKey, baseURL, modelName, summaryUsage)) {
         await sseEvent(writer, { type: 'text', chunk })
       }
 
       // Emit stats as text chunk appended to report
       const elapsed = ((Date.now() - startTime) / 1000).toFixed(1)
-      const totalTokens = repoStats.reduce((s, r) => s + r.totalTokens, 0)
+      const totalTokens = repoStats.reduce((s, r) => s + r.totalTokens, 0) + summaryUsage.totalTokens
       const statsText = `\n\n---\n\n**📊 统计信息** | 耗时: ${elapsed}s | 💰 共消耗 ${totalTokens} tokens\n`
       await sseEvent(writer, { type: 'text', chunk: statsText })
       await sseEvent(writer, { type: 'done' })
