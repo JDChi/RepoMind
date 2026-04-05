@@ -1,16 +1,8 @@
 // Repo Agent - analyzes GitHub repositories using MiniMax AI v4
 import { streamText } from 'ai'
 import { createMinimaxOpenAI } from 'vercel-minimax-ai-provider'
-import { createGithubTools, fetchCodeFiles } from '../tools/github'
-
-function parseRepo(input: string): { owner: string; name: string } {
-  const trimmed = input.trim()
-  const match = trimmed.match(/github\.com\/([^/]+)\/([^/?#]+)/)
-  if (match) return { owner: match[1], name: match[2] }
-  const parts = trimmed.split('/')
-  if (parts.length === 2 && parts[0] && parts[1]) return { owner: parts[0], name: parts[1] }
-  throw new Error(`Invalid repo format: "${input}". Expected "owner/repo" or GitHub URL.`)
-}
+import { fetchCodeFiles } from '../tools/github'
+import { validateAndParseRepo } from '../utils/repo'
 
 export type RepoEvent =
   | { type: 'progress'; msg: string }
@@ -18,9 +10,7 @@ export type RepoEvent =
   | { type: 'reasoning'; chunk: string }
   | { type: 'usage'; promptTokens: number; completionTokens: number; totalTokens: number }
 
-async function fetchRepoData(owner: string, repo: string, token?: string): Promise<string> {
-  // Import the tools and manually call them
-  const tools = createGithubTools(token)
+async function fetchRepoData(owner: string, repo: string, token?: string, signal?: AbortSignal): Promise<string> {
   const headers: Record<string, string> = {
     'User-Agent': 'RepoMind',
     'Accept': 'application/vnd.github.v3+json',
@@ -28,11 +18,11 @@ async function fetchRepoData(owner: string, repo: string, token?: string): Promi
   if (token) headers['Authorization'] = `token ${token}`
 
   const [repoRes, commitRes, contribRes, releaseRes, readmeRes] = await Promise.allSettled([
-    fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers }),
-    fetch(`https://api.github.com/repos/${owner}/${repo}/stats/commit_activity`, { headers }),
-    fetch(`https://api.github.com/repos/${owner}/${repo}/contributors?per_page=100`, { headers }),
-    fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=10`, { headers }),
-    fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, { headers }),
+    fetch(`https://api.github.com/repos/${owner}/${repo}`, { headers, signal }),
+    fetch(`https://api.github.com/repos/${owner}/${repo}/stats/commit_activity`, { headers, signal }),
+    fetch(`https://api.github.com/repos/${owner}/${repo}/contributors?per_page=100`, { headers, signal }),
+    fetch(`https://api.github.com/repos/${owner}/${repo}/releases?per_page=10`, { headers, signal }),
+    fetch(`https://api.github.com/repos/${owner}/${repo}/readme`, { headers, signal }),
   ])
 
   let summary = `## ${owner}/${repo} 数据概览\n\n`
@@ -110,14 +100,14 @@ export async function* streamRepoAgent(
   apiKey: string,
   baseURL: string,
   modelName: string,
-  githubToken?: string
+  githubToken?: string,
+  signal?: AbortSignal
 ): AsyncGenerator<RepoEvent> {
   const minimax = createMinimaxOpenAI({ apiKey, baseURL })
-  const model = minimax(modelName) as any
-  // Enable usage stats from MiniMax streaming API
-  if (model.config) model.config.includeUsage = true
+  // Note: includeUsage enabled via provider options if available
+  const model = minimax(modelName)
 
-  const { owner, name } = parseRepo(repo)
+  const { owner, name } = validateAndParseRepo(repo)
   const prompt = `请分析 GitHub 仓库：${owner}/${name}`
 
   yield { type: 'progress', msg: `📡 正在获取 ${owner}/${name} 的 GitHub 数据...` }
@@ -125,7 +115,7 @@ export async function* streamRepoAgent(
   // Fetch GitHub metadata (stars, forks, commits, contributors, etc.)
   let repoData: string
   try {
-    repoData = await fetchRepoData(owner, name, githubToken)
+    repoData = await fetchRepoData(owner, name, githubToken, signal)
   } catch (e: any) {
     repoData = `获取数据失败: ${e.message}`
   }
@@ -134,7 +124,7 @@ export async function* streamRepoAgent(
   yield { type: 'progress', msg: `🔧 正在分析代码结构...` }
   let codeAnalysis = ''
   try {
-    for await (const step of fetchCodeFiles(owner, name, githubToken)) {
+    for await (const step of fetchCodeFiles(owner, name, githubToken, signal)) {
       if (step.type === 'progress') {
         yield { type: 'progress', msg: `  ${step.msg}` }
       } else if (step.type === 'result') {
@@ -152,7 +142,6 @@ export async function* streamRepoAgent(
   // Now use streamText to generate analysis with the collected data
   const result = streamText({
     model,
-    maxSteps: 2,
     system: `你是一个 GitHub 仓库分析助手。根据提供的仓库数据，生成约300字的中文结构化摘要，涵盖以下5个维度：
 1. 活跃度：最近的 commit 频率和趋势
 2. 社区规模：stars、forks、贡献者数量
@@ -164,6 +153,7 @@ export async function* streamRepoAgent(
     prompt: `请根据以下数据，分析 GitHub 仓库 ${owner}/${name}：
 
 ${repoData}`,
+    abortSignal: signal,
   })
 
   let usageInfo: { promptTokens: number; completionTokens: number; totalTokens: number } | null = null

@@ -11,7 +11,8 @@ export async function* streamSummary(
   apiKey: string,
   baseURL: string,
   modelName: string,
-  usageOut?: { promptTokens: number; completionTokens: number; totalTokens: number }
+  usageOut?: { promptTokens: number; completionTokens: number; totalTokens: number },
+  signal?: AbortSignal
 ): AsyncGenerator<string> {
   const minimax = createMinimaxOpenAI({ apiKey, baseURL })
   const model = minimax(modelName)
@@ -84,6 +85,7 @@ export async function* streamSummary(
 ${analysesText}
 
 报告标题：RepoMind 对比报告：${repoNames}`,
+    abortSignal: signal,
   })
 
   for await (const chunk of result.textStream) {

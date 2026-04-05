@@ -175,17 +175,17 @@ export interface CodeAnalysisResult {
   keyFiles: string[]
 }
 
-export async function fetchFileTree(owner: string, repo: string, token?: string): Promise<TreeEntry[]> {
+export async function fetchFileTree(owner: string, repo: string, token?: string, signal?: AbortSignal): Promise<TreeEntry[]> {
   const headers = getHeaders(token)
-  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`, { headers })
+  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/git/trees/HEAD?recursive=1`, { headers, signal })
   if (!res.ok) throw new Error(`GitHub API error: ${res.status}`)
   const data = await res.json() as { tree: TreeEntry[] }
   return data.tree.filter(f => f.type === 'blob')
 }
 
-export async function fetchFileContent(owner: string, repo: string, path: string, token?: string): Promise<string | null> {
+export async function fetchFileContent(owner: string, repo: string, path: string, token?: string, signal?: AbortSignal): Promise<string | null> {
   const headers = getHeaders(token)
-  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, { headers })
+  const res = await fetch(`${GITHUB_API}/repos/${owner}/${repo}/contents/${encodeURIComponent(path)}`, { headers, signal })
   if (!res.ok) return null
   const data = await res.json() as { content: string; encoding: string }
   if (data.encoding === 'base64') {
@@ -229,12 +229,13 @@ export async function* fetchCodeFiles(
   owner: string,
   repo: string,
   token?: string,
+  signal?: AbortSignal
 ): AsyncGenerator<{ type: 'progress'; msg: string } | { type: 'result'; data: CodeAnalysisResult }> {
   const concurrency = token ? 10 : 4
   const delayMs = token ? 20 : 100
 
   yield { type: 'progress', msg: '📁 [1/4] 获取文件结构...' }
-  const tree = await fetchFileTree(owner, repo, token)
+  const tree = await fetchFileTree(owner, repo, token, signal)
 
   // Score and filter files
   yield { type: 'progress', msg: `📊 [2/4] 筛选关键文件 (共 ${tree.length} 个)...` }
@@ -252,7 +253,7 @@ export async function* fetchCodeFiles(
     const batch = candidates.slice(i, i + concurrency)
     const settled = await Promise.allSettled(
       batch.map(c =>
-        fetchFileContent(owner, repo, c.entry.path, token)
+        fetchFileContent(owner, repo, c.entry.path, token, signal)
           .then(content => [c.entry.path, content] as const)
       )
     )
