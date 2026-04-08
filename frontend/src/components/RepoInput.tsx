@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { trackButtonClick } from '../analytics'
 
 interface Props {
   repos: string[]
@@ -28,8 +29,35 @@ export function RepoInput({ repos, onChange, disabled, apiBaseUrl }: Props) {
     onChange(next)
   }
 
-  const add = () => { if (repos.length < 3) onChange([...repos, '']) }
-  const remove = (i: number) => { if (repos.length > 2) onChange(repos.filter((_, idx) => idx !== i)) }
+  const add = () => {
+    if (repos.length < 3) {
+      const nextRepos = [...repos, '']
+      onChange(nextRepos)
+      void trackButtonClick({
+        apiBaseUrl,
+        eventName: 'add_repo_click',
+        buttonLabel: '+ 添加仓库',
+        repoInputs: nextRepos,
+      })
+    }
+  }
+
+  const remove = (i: number) => {
+    if (repos.length > 2) {
+      const nextRepos = repos.filter((_, idx) => idx !== i)
+      onChange(nextRepos)
+      void trackButtonClick({
+        apiBaseUrl,
+        eventName: 'remove_repo_click',
+        buttonLabel: '✕',
+        repoInputs: nextRepos,
+        metadata: {
+          removedIndex: i,
+          removedValue: repos[i],
+        },
+      })
+    }
+  }
 
   const searchRepos = (query: string) => {
     if (debounceRef.current) clearTimeout(debounceRef.current)
@@ -49,7 +77,7 @@ export function RepoInput({ repos, onChange, disabled, apiBaseUrl }: Props) {
           { signal: abortControllerRef.current.signal }
         )
         if (!res.ok) return
-        const data = await res.json()
+        const data = await res.json() as { items?: Suggestion[] }
         setSuggestions(data.items || [])
         setActiveIndex(-1)
       } catch { setSuggestions([]) }

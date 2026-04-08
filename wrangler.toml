@@ -9,3 +9,8 @@ AI_MODEL_NAME = "MiniMax-M2.7-highspeed"
 ALLOWED_ORIGIN = "https://repomind.pages.dev,https://repomind.jdchi.tech"
 
 # For secrets, use: wrangler secret put MINIMAX_API_KEY
+
+[[d1_databases]]
+binding = "DB"
+database_name = "repomind-events"
+database_id = "f6f3de86-a2ed-4880-8f22-758e62e2cc26"

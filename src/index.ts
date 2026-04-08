@@ -1,6 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import compareRouter from './routes/compare'
+import eventsRouter from './routes/events'
 import searchRouter from './routes/search'
 
 type Env = {
@@ -8,6 +9,7 @@ type Env = {
   OPENAI_BASE_URL: string
   AI_MODEL_NAME: string
   ALLOWED_ORIGIN?: string
+  DB: D1Database
 }
 
 const app = new Hono<{ Bindings: Env }>()
@@ -23,6 +25,7 @@ app.use('*', cors({
 }))
 
 app.route('/', compareRouter)
+app.route('/', eventsRouter)
 app.route('/', searchRouter)
 
 app.get('/', (c) => {

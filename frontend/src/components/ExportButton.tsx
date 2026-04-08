@@ -1,9 +1,12 @@
 import { marked } from 'marked'
 import DOMPurify from 'dompurify'
+import { trackButtonClick } from '../analytics'
 
 interface Props {
   report: string
   disabled: boolean
+  repos: string[]
+  apiBaseUrl: string
 }
 
 function download(filename: string, content: string, type: string) {
@@ -16,10 +19,24 @@ function download(filename: string, content: string, type: string) {
   URL.revokeObjectURL(url)
 }
 
-export function ExportButton({ report, disabled }: Props) {
-  const exportMd = () => download('repomind-report.md', report, 'text/markdown')
+export function ExportButton({ report, disabled, repos, apiBaseUrl }: Props) {
+  const exportMd = () => {
+    void trackButtonClick({
+      apiBaseUrl,
+      eventName: 'export_markdown_click',
+      buttonLabel: 'Markdown',
+      repoInputs: repos,
+    })
+    download('repomind-report.md', report, 'text/markdown')
+  }
 
   const exportHtml = async () => {
+    void trackButtonClick({
+      apiBaseUrl,
+      eventName: 'export_html_click',
+      buttonLabel: 'HTML',
+      repoInputs: repos,
+    })
     const body = await marked(report)
     const safeBody = DOMPurify.sanitize(body)
     const html = `<!DOCTYPE html>

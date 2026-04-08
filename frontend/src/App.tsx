@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
+import { trackButtonClick } from './analytics'
 import { RepoInput } from './components/RepoInput'
 import { ReportView } from './components/ReportView'
 import { ExportButton } from './components/ExportButton'
@@ -150,6 +151,13 @@ export default function App() {
   }
 
   const handleCompare = async () => {
+    void trackButtonClick({
+      apiBaseUrl: API_BASE_URL,
+      eventName: 'compare_click',
+      buttonLabel: '开始对比',
+      repoInputs: repos,
+    })
+
     const dups = findDuplicates(repos)
     if (dups.length > 0) {
       setError(`检测到重复仓库: ${dups.join(', ')}`)
@@ -375,7 +383,7 @@ export default function App() {
               Comparison Report
               {isLoading && <span className="summary-badge">Generating</span>}
             </h2>
-            <ExportButton report={report} disabled={isLoading} />
+            <ExportButton report={report} disabled={isLoading} repos={repos} apiBaseUrl={API_BASE_URL} />
           </div>
           <div className="report-content">
             <ReportView content={report} />
